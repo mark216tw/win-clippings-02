@@ -1,0 +1,62 @@
+namespace Clippings.Core.Models;
+
+public sealed class AppSettings
+{
+    public string HotkeyRegion { get; set; } = "Ctrl+Shift+X";
+
+    public string HotkeyFullScreen { get; set; } = "Ctrl+Shift+F";
+
+    public string HotkeyWindow { get; set; } = "Ctrl+Shift+W";
+
+    public string HotkeyDelayed { get; set; } = "Ctrl+Shift+D";
+
+    public string HotkeyAnnotate { get; set; } = "Ctrl+Shift+A";
+
+    public int DelaySeconds { get; set; } = 5;
+
+    public string SaveDirectory { get; set; } = string.Empty;
+
+    public ImageFormat DefaultFormat { get; set; } = ImageFormat.Png;
+
+    public int JpegQuality { get; set; } = 90;
+
+    public bool AutoCopy { get; set; } = true;
+
+    public bool PlayCaptureSound { get; set; } = true;
+
+    public bool SaveAutomatically { get; set; }
+
+    public AppTheme Theme { get; set; } = AppTheme.System;
+
+    public bool StartWithWindows { get; set; }
+
+    public bool ShowMagnifier { get; set; } = true;
+
+    public bool CaptureCursor { get; set; }
+
+    public AnnotationSettings Annotation { get; set; } = new();
+
+    public RecordingSettings Recording { get; set; } = new();
+
+    public AppSettings Clone()
+    {
+        var clone = (AppSettings)MemberwiseClone();
+        clone.Annotation = Annotation.Clone();
+        clone.Recording = Recording.Clone();
+        return clone;
+    }
+}
+
+public enum AppTheme
+{
+    System = 0,
+    Light = 1,
+    Dark = 2,
+    WarmPaper = 3,
+    SoftSage = 4,
+    DuskBlue = 5,
+    DuskPurple = 6,
+    InkGreenNight = 7,
+    MistBlueMorning = 8,
+}
+
