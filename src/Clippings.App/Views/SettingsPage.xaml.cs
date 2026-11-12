@@ -60,7 +60,7 @@ public partial class SettingsPage : UserControl
         var informational = Assembly.GetExecutingAssembly()
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
         VersionText.Text = string.IsNullOrWhiteSpace(informational)
-            ? "v1.28.2"
+            ? "v1.28.3"
             : $"v{informational.Split('+')[0]}";
 
         _state = state;

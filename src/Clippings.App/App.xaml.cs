@@ -22,7 +22,6 @@ using Clippings.Platform.SingleInstance;
 using Clippings.Platform.Storage;
 using H.NotifyIcon;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace Clippings.App;
@@ -33,7 +32,7 @@ public partial class App : Application
     private const int ExitCodeForwardFailed = 1;
     private const int ExitCodeInvalidArguments = 2;
 
-    private IHost? _host;
+    private ServiceProvider? _provider;
     private IServiceProvider? _services;
     private SingleInstanceService? _singleInstance;
     private TaskbarIcon? _trayIcon;
@@ -103,9 +102,8 @@ public partial class App : Application
 
         LoadApplicationResources();
 
-        _host = BuildHost(_singleInstance);
-        _host.Start();
-        _services = _host.Services;
+        _provider = BuildServices(_singleInstance);
+        _services = _provider;
         _logger = _services.GetRequiredService<ILogger<App>>();
         if (!AppIdentity.TryApply())
         {
@@ -126,21 +124,22 @@ public partial class App : Application
 
         ApplyTheme(State.Settings.Theme);
 
-        CreateTrayIcon();
         StartupRegistrar.SetEnabled(State.Settings.StartWithWindows);
 
         Coordinator.CaptureAdded += OnCaptureAdded;
         State.SettingsChanged += OnSettingsChanged;
 
+        if (!options.HideMainWindow)
+        {
+            EnsureMainWindow().Show();
+        }
+
+        CreateTrayIcon();
+
         _hotkeyFailures = ApplyHotkeys();
         foreach (var failure in _hotkeyFailures)
         {
             _logger.LogWarning("快捷鍵無法註冊：{Hotkey}", failure);
-        }
-
-        if (!options.HideMainWindow)
-        {
-            EnsureMainWindow().Show();
         }
 
         if (_hotkeyFailures.Count > 0)
@@ -244,43 +243,42 @@ public partial class App : Application
         }
     }
 
-    private IHost BuildHost(SingleInstanceService singleInstance)
+    private ServiceProvider BuildServices(SingleInstanceService singleInstance)
     {
-        return new HostBuilder()
-            .ConfigureLogging(logging =>
-            {
-                logging.ClearProviders();
-                logging.AddDebug();
-                logging.AddProvider(new FileLoggerProvider(FileLoggerProvider.DefaultDirectory));
-                logging.SetMinimumLevel(LogLevel.Information);
-            })
-            .ConfigureServices(services =>
-            {
-                services.AddSingleton(singleInstance);
-                services.AddSingleton<ISettingsStore, JsonSettingsStore>();
-                services.AddSingleton<AppState>();
-                services.AddSingleton<TrayNotificationService>();
-                services.AddSingleton<INotificationService>(provider => provider.GetRequiredService<TrayNotificationService>());
-                services.AddSingleton<ThemeService>();
-                services.AddSingleton<MonitorService>();
-                services.AddSingleton<ScreenCaptureService>();
-                services.AddSingleton<WindowsGraphicsCaptureService>();
-                services.AddSingleton<WindowsGraphicsRecordingService>();
-                services.AddSingleton<ForegroundWindowTracker>();
-                services.AddSingleton<WindowEnumerationService>();
-                services.AddSingleton<RecordingTargetPicker>();
-                services.AddSingleton<RecordingCountdownService>();
-                services.AddSingleton<RecordingOverlayService>();
-                services.AddSingleton<CaptureWorkspaceService>();
-                services.AddSingleton<CaptureCoordinator>();
-                services.AddSingleton<RecordingCoordinator>();
-                services.AddSingleton<ScreenAnnotationService>();
-                services.AddSingleton<GlobalHotkeyService>();
-                services.AddSingleton<MainWindow>();
-                services.AddSingleton<CaptureWorkspacePage>();
-                services.AddSingleton<SettingsPage>();
-            })
-            .Build();
+        var services = new ServiceCollection();
+        services.AddLogging(logging =>
+        {
+            logging.ClearProviders();
+            logging.AddDebug();
+            logging.AddProvider(new FileLoggerProvider(FileLoggerProvider.DefaultDirectory));
+            logging.SetMinimumLevel(LogLevel.Information);
+        });
+
+        services.AddSingleton(singleInstance);
+        services.AddSingleton<ISettingsStore, JsonSettingsStore>();
+        services.AddSingleton<AppState>();
+        services.AddSingleton<TrayNotificationService>();
+        services.AddSingleton<INotificationService>(provider => provider.GetRequiredService<TrayNotificationService>());
+        services.AddSingleton<ThemeService>();
+        services.AddSingleton<MonitorService>();
+        services.AddSingleton<ScreenCaptureService>();
+        services.AddSingleton<WindowsGraphicsCaptureService>();
+        services.AddSingleton<WindowsGraphicsRecordingService>();
+        services.AddSingleton<ForegroundWindowTracker>();
+        services.AddSingleton<WindowEnumerationService>();
+        services.AddSingleton<RecordingTargetPicker>();
+        services.AddSingleton<RecordingCountdownService>();
+        services.AddSingleton<RecordingOverlayService>();
+        services.AddSingleton<CaptureWorkspaceService>();
+        services.AddSingleton<CaptureCoordinator>();
+        services.AddSingleton<RecordingCoordinator>();
+        services.AddSingleton<ScreenAnnotationService>();
+        services.AddSingleton<GlobalHotkeyService>();
+        services.AddSingleton<MainWindow>();
+        services.AddSingleton<CaptureWorkspacePage>();
+        services.AddSingleton<SettingsPage>();
+
+        return services.BuildServiceProvider();
     }
 
     private void CreateTrayIcon()
@@ -606,18 +604,7 @@ public partial class App : Application
         _notifications?.Initialize(null);
         _trayIcon?.Dispose();
 
-        if (_host is not null)
-        {
-            try
-            {
-                _host.StopAsync(TimeSpan.FromSeconds(2)).GetAwaiter().GetResult();
-            }
-            catch (Exception exception) when (exception is OperationCanceledException or TimeoutException)
-            {
-            }
-
-            _host.Dispose();
-        }
+        _provider?.Dispose();
 
         _singleInstance?.Dispose();
         base.OnExit(e);

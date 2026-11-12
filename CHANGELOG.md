@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.28.3 - 2026-11-12
+
+### 改善
+
+- 啟動順序調整：先顯示主視窗，再建立系統匣與註冊熱鍵
+- 空白工作區不建立 `EditorView`，減少 XAML 解析與 SkiaSharp 原生載入
+- 以 `ServiceCollection` 取代 Generic Host，簡化 DI 啟動
+- 發佈檔案精簡：移除 `Microsoft.Extensions.Hosting` 與 NAudio 未使用子套件
+
+### 變更
+
+- 系統音訊改用 `NAudio.Wasapi`（行為不變）
+- `appsettings` 相關 Host 設定不再載入（本專案未使用）
+
 ## 1.28.2 - 2026-11-12
 
 ### 改善

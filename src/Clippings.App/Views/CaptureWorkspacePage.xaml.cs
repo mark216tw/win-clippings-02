@@ -27,9 +27,10 @@ public partial class CaptureWorkspacePage : UserControl
     private readonly AppState _state;
     private readonly CaptureWorkspaceService _workspace;
     private readonly CaptureCoordinator _coordinator;
-    private readonly EditorView _editor;
     private readonly WorkspaceTabStrip _tabStrip;
     private readonly ILogger<CaptureWorkspacePage> _logger;
+    private readonly ILoggerFactory _loggerFactory;
+    private EditorView? _editor;
     private readonly DispatcherTimer _saveTimer;
     private readonly DispatcherTimer _toastTimer;
     private readonly SemaphoreSlim _saveGate = new(1, 1);
@@ -55,20 +56,12 @@ public partial class CaptureWorkspacePage : UserControl
         _workspace = workspace;
         _coordinator = coordinator;
         _logger = loggerFactory.CreateLogger<CaptureWorkspacePage>();
-        _editor = new EditorView(loggerFactory);
+        _loggerFactory = loggerFactory;
         _tabStrip = new WorkspaceTabStrip();
         _tabStrip.ItemsSource = _workspace.Tabs;
         _tabStrip.TabSelectionChanged += OnTabSelectionChanged;
         _tabStrip.TabCloseRequested += OnTabCloseRequested;
         _tabStrip.CloseAllRequested += OnTabStripCloseAllRequested;
-        _editor.SetTabBar(_tabStrip);
-
-        EditorHost.Content = _editor;
-        _editor.DocumentChanged += OnEditorDocumentChanged;
-        _editor.SaveAsRequested += OnEditorSaveAsRequested;
-        _editor.OpenImageFromClipboardRequested += OnEditorOpenImageFromClipboardRequested;
-        _editor.OpenImageFileRequested += OnEditorOpenImageFileRequested;
-        _editor.ViewInfoChanged += OnEditorViewInfoChanged;
 
         _workspace.Tabs.CollectionChanged += OnWorkspaceTabsChanged;
         _saveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(SaveDebounceMilliseconds) };
@@ -80,6 +73,25 @@ public partial class CaptureWorkspacePage : UserControl
         UpdateEmptyState();
         UpdateEditorInfo();
         _initialization = InitializeAsync();
+    }
+
+    private EditorView EnsureEditor()
+    {
+        if (_editor is not null)
+        {
+            return _editor;
+        }
+
+        var editor = new EditorView(_loggerFactory);
+        editor.SetTabBar(_tabStrip);
+        editor.DocumentChanged += OnEditorDocumentChanged;
+        editor.SaveAsRequested += OnEditorSaveAsRequested;
+        editor.OpenImageFromClipboardRequested += OnEditorOpenImageFromClipboardRequested;
+        editor.OpenImageFileRequested += OnEditorOpenImageFileRequested;
+        editor.ViewInfoChanged += OnEditorViewInfoChanged;
+        EditorHost.Content = editor;
+        _editor = editor;
+        return editor;
     }
 
     public async Task ShowTabAsync(WorkspaceTab tab)
@@ -119,7 +131,7 @@ public partial class CaptureWorkspacePage : UserControl
         await CommitPendingCloseAsync();
     }
 
-    public bool HandleEditorKey(KeyEventArgs e) => _editor.HandleEditorKey(e);
+    public bool HandleEditorKey(KeyEventArgs e) => _editor?.HandleEditorKey(e) == true;
 
     private async Task InitializeAsync()
     {
@@ -168,9 +180,10 @@ public partial class CaptureWorkspacePage : UserControl
 
     private async Task SelectTabAsync(WorkspaceTab? target)
     {
+        var hasImage = _editor?.HasImage ?? false;
         if (ReferenceEquals(target, _selectedTab) &&
             ReferenceEquals(target, _tabStrip.SelectedTab) &&
-            (target is null ? !_editor.HasImage : _editor.HasImage))
+            (target is null ? !hasImage : hasImage))
         {
             UpdateTabCount();
             UpdateEmptyState();
@@ -209,7 +222,7 @@ public partial class CaptureWorkspacePage : UserControl
 
         if (target is null)
         {
-            _editor.ClearImage();
+            _editor?.ClearImage();
             UpdateEmptyState();
             return;
         }
@@ -229,7 +242,7 @@ public partial class CaptureWorkspacePage : UserControl
                 return;
             }
 
-            _editor.LoadImage(bitmap);
+            EnsureEditor().LoadImage(bitmap);
             StatusText.Text = string.Empty;
         }
         catch (Exception exception)
@@ -260,7 +273,8 @@ public partial class CaptureWorkspacePage : UserControl
 
     private async Task<bool> SaveTabAsync(WorkspaceTab? tab, bool force)
     {
-        if (tab is null || !_editor.HasImage || (!force && !_editor.IsDirty))
+        var editor = _editor;
+        if (tab is null || editor is null || !editor.HasImage || (!force && !editor.IsDirty))
         {
             return true;
         }
@@ -268,14 +282,15 @@ public partial class CaptureWorkspacePage : UserControl
         await _saveGate.WaitAsync();
         try
         {
-            if (tab is null || !_editor.HasImage || (!force && !_editor.IsDirty))
+            editor = _editor;
+            if (tab is null || editor is null || !editor.HasImage || (!force && !editor.IsDirty))
             {
                 return true;
             }
 
-            _editor.FlushPendingEdits();
-            var version = _editor.EditVersion;
-            using var flattened = _editor.CreateFlattenedBitmap(SKColors.Transparent);
+            editor.FlushPendingEdits();
+            var version = editor.EditVersion;
+            using var flattened = editor.CreateFlattenedBitmap(SKColors.Transparent);
             var width = flattened.Width;
             var height = flattened.Height;
             var bytes = await Task.Run(() => ImageCodec.Encode(flattened, ImageFormat.Png));
@@ -287,9 +302,9 @@ public partial class CaptureWorkspacePage : UserControl
                 return false;
             }
 
-            if (ReferenceEquals(tab, _selectedTab) && version == _editor.EditVersion)
+            if (ReferenceEquals(tab, _selectedTab) && version == editor.EditVersion)
             {
-                _editor.MarkClean();
+                editor.MarkClean();
             }
 
             return true;
@@ -341,7 +356,7 @@ public partial class CaptureWorkspacePage : UserControl
             }
 
             _selectedTab = null;
-            _editor.ClearImage();
+            _editor?.ClearImage();
         }
 
         _saveTimer.Stop();
@@ -416,7 +431,7 @@ public partial class CaptureWorkspacePage : UserControl
         }
 
         _selectedTab = null;
-        _editor.ClearImage();
+        _editor?.ClearImage();
 
         var detached = _workspace.Tabs
             .Select((tab, index) => new PendingClosedTab(tab, index, WasSelected: false))
@@ -560,7 +575,8 @@ public partial class CaptureWorkspacePage : UserControl
 
     private async Task SaveAsAsync()
     {
-        if (_selectedTab is not { } tab || !_editor.HasImage)
+        var editor = _editor;
+        if (_selectedTab is not { } tab || editor is null || !editor.HasImage)
         {
             return;
         }
@@ -589,9 +605,9 @@ public partial class CaptureWorkspacePage : UserControl
                 return;
             }
 
-            _editor.FlushPendingEdits();
-            var version = _editor.EditVersion;
-            using var flattened = _editor.CreateFlattenedBitmap(SKColors.White);
+            editor.FlushPendingEdits();
+            var version = editor.EditVersion;
+            using var flattened = editor.CreateFlattenedBitmap(SKColors.White);
             var width = flattened.Width;
             var height = flattened.Height;
             var format = dialog.FilterIndex == 2 ? ImageFormat.Jpeg : ImageFormat.Png;
@@ -603,10 +619,10 @@ public partial class CaptureWorkspacePage : UserControl
             await File.WriteAllBytesAsync(dialog.FileName, outputBytes);
             await _workspace.DeleteTempAfterSaveAsync(tab);
             tab.MemoryImage = pngBytes;
-            tab.IsSaved = version == _editor.EditVersion;
-            if (version == _editor.EditVersion)
+            tab.IsSaved = version == editor.EditVersion;
+            if (version == editor.EditVersion)
             {
-                _editor.MarkClean();
+                editor.MarkClean();
             }
             else
             {
@@ -742,14 +758,15 @@ public partial class CaptureWorkspacePage : UserControl
 
     private void UpdateEditorInfo()
     {
-        var hasImage = _editor.HasImage;
-        HeaderImageSizeText.Text = hasImage ? _editor.ImageSizeDisplay : "—";
-        HeaderZoomText.Text = hasImage ? _editor.ZoomDisplay : "—";
-        HeaderZoomText.ToolTip = hasImage ? _editor.ZoomToolTip : null;
+        var editor = _editor;
+        var hasImage = editor?.HasImage ?? false;
+        HeaderImageSizeText.Text = hasImage ? editor!.ImageSizeDisplay : "—";
+        HeaderZoomText.Text = hasImage ? editor!.ZoomDisplay : "—";
+        HeaderZoomText.ToolTip = hasImage ? editor!.ZoomToolTip : null;
         ActualPixelsButton.IsEnabled = hasImage;
     }
 
-    private void OnActualPixelsClick(object sender, RoutedEventArgs e) => _editor.ZoomToActualPixels();
+    private void OnActualPixelsClick(object sender, RoutedEventArgs e) => _editor?.ZoomToActualPixels();
 
     private void UpdateTabCount()
     {

@@ -225,10 +225,10 @@ HKCU\Software\Microsoft\Windows\CurrentVersion\Run
 1. 解析命令列參數。
 2. `--help` 或無效參數：輸出後結束（0／2）。
 3. 建立 `SingleInstanceService`；非第一個實例則轉送參數並結束（0／1）。
-4. 建立 Host 與 DI 容器，啟動日誌、設定、儲存等服務；設定 AppUserModelID 並載入工作區暫存。
-5. 套用主題、建立系統匣、同步開機啟動設定。
-6. 建立 `MainWindow`，依參數決定是否顯示。
-7. 註冊全域熱鍵、啟動單一實例監聽、執行冷啟動命令。
+4. 載入應用程式資源字典，建立 DI 容器與日誌；設定 AppUserModelID。
+5. 載入設定、套用主題，於背景清理舊版資料。
+6. 依參數決定是否先建立並顯示 `MainWindow`；再建立系統匣（選單於閒置時建立）。
+7. 同步開機啟動設定、註冊全域熱鍵、啟動單一實例監聽、執行冷啟動命令。
 
 ### 5.2 CaptureCoordinator
 
@@ -269,6 +269,7 @@ HKCU\Software\Microsoft\Windows\CurrentVersion\Run
 `CaptureWorkspacePage` + `EditorView`：
 
 - `CaptureWorkspacePage` 使用 `ObservableCollection<WorkspaceTab>` 顯示頁籤列，最多 20 個；同一時間只有一個 `EditorView` 載入選取頁籤的影像，避免同時保留大量點陣圖。
+- `EditorView` 於第一次需要顯示影像時才建立；空工作區不建立，也不載入 SkiaSharp 原生程式庫。
 - 每個 `WorkspaceTab` 記錄建立時間、標題、尺寸、暫存路徑與（另存後）記憶體快照。
 - 擷取完成、頁籤切換、關閉或程式結束前會將目前編輯結果合成為 PNG；編輯後以 800 ms 去抖自動寫回暫存檔。
 - `CaptureWorkspaceService` 以 `SemaphoreSlim` 序列化暫存檔讀寫；`CaptureWorkspaceLimits.MaxTabs` 固定為 20。

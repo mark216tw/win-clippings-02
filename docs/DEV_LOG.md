@@ -4,6 +4,52 @@
 
 ---
 
+## 2026-11-12 - 第二波啟動優化（v1.28.3）
+
+### 目標
+
+在 v1.28.2 的基礎上縮短 Release 啟動時間、降低空工作區啟動成本，並精簡發佈內容。Release 建置與量測經使用者明確同意。
+
+### 變更
+
+- `App.xaml.cs`：
+  - `HostBuilder` 改為 `ServiceCollection` + `BuildServiceProvider`；移除 `Microsoft.Extensions.Hosting`。
+  - 啟動順序改為：套用主題 → 若需顯示則先建立並顯示 `MainWindow` → 建立系統匣 → 註冊熱鍵。
+  - `OnExit` 改為 dispose `ServiceProvider`，確保日誌 Provider 沖刷。
+- `Views/CaptureWorkspacePage.xaml.cs`：`EditorView` 改為 `EnsureEditor()` 延遲建立；空工作區不建立編輯器，相關存取改為 null-safe。
+- `Clippings.App.csproj`：加入 `Microsoft.Extensions.DependencyInjection`、移除 `Microsoft.Extensions.Hosting`。
+- `Clippings.Platform.csproj`：`NAudio` 改為 `NAudio.Wasapi`（只使用 `WasapiLoopbackCapture`、`MediaFoundationResampler`）。
+- `Directory.Packages.props`：同步套件版本調整。
+- 更新 `README.md`、`docs/ARCHITECTURE.md`、`docs/TECHNICAL.md`、`docs/BUILD_AND_RELEASE.md` 的啟動流程、DI 與大小資訊。
+
+### Release 量測（x64 framework-dependent、暖啟動中位數）
+
+- 雙擊啟動首次繪製：約 1.23 s → 0.96 s。
+- `--autostart` 系統匣就緒：約 0.63 s → 0.49 s。
+- `--capture-region` 執行啟動命令：約 0.61 s → 0.52 s。
+- 空白工作區：不再建立 `EditorView`（Debug 約省 80–100 ms；Release 未逐項量測）。
+- ZIP（不含 PDB）：14.53 MB → 14.07 MB；發佈檔案（不含 PDB）61 → 36 個。
+
+### 問題與解法
+
+- **資源字典無法再延後**：`Controls.xaml` 被 `CaptureOverlayWindow`、`AnnotationToolbarWindow`、`RecordingOverlayWindow` 等以 `StaticResource` 直接引用，延後到熱鍵／命令列之後會造成解析失敗；維持單一實例判斷後載入。
+- **EditorView 延遲建立的空值處理**：`SelectTabAsync`、`SaveTabAsync`、`SaveAsAsync`、`UpdateEditorInfo`、`HandleEditorKey` 等需改為 null-safe；只在需要載入或操作影像時呼叫 `EnsureEditor()`。
+- **NAudio 精簡**：確認 `WasapiLoopbackCapture` 與 `MediaFoundationResampler` 位於 `NAudio.Wasapi`，`WaveInEventArgs` 位於 `NAudio.Core`，因此可移除 Asio／Midi／WinForms／WinMM。
+- **移除 Hosting 後**：需明確加入 `Microsoft.Extensions.DependencyInjection`；`FileLoggerProvider` 由容器建立，`OnExit` 呼叫 `ServiceProvider.Dispose()` 即可沖刷日誌。
+- **量測時 DLL 被鎖定**：先前測試留下的 `Clippings.App.New` 實例未結束，導致 Release 建置複製失敗；量測前先確認沒有執行中的實例。
+
+### 待辦
+
+- Release 暖啟動量測變異較大（約 ±100–200 ms），未做多次冷啟動統計。
+- 系統音訊錄影僅完成建置與啟動煙霧測試，尚未實機錄音驗證。
+- OpenTK／GLFW 發佈檔案未精簡（保留 `SkiaSharp.Views.WPF` 預設相依）。
+
+### 日期與版本
+
+2026-11-12，v1.28.3。
+
+---
+
 ## 2026-11-12 - 加速啟動（v1.28.2）
 
 ### 目標

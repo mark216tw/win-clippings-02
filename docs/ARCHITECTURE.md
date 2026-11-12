@@ -21,7 +21,7 @@ flowchart TB
     subgraph App["Clippings.App（WPF）"]
         UI["Views / XAML"]
         SVC["App Services<br/>CaptureCoordinator、RecordingCoordinator<br/>GlobalHotkeyService、ThemeService"]
-        DI["Host / DI Container"]
+        DI["DI Container"]
         LOG["FileLoggerProvider"]
     end
 
@@ -58,7 +58,7 @@ flowchart TB
 | --- | --- | --- |
 | `Clippings.Core` | `net10.0-windows10.0.19041.0` | 純資料模型、設定、`PixelRect`、`UndoStack`、雜湊、路徑、快捷鍵格式、命令列解析、儲存介面 |
 | `Clippings.Platform` | 同上 | Windows.Graphics.Capture／GDI 螢幕擷取、螢幕列舉與 DPI、SkiaSharp 編碼、JSON 設定、開機登錄、單一實例管線、主控台附加 |
-| `Clippings.App` | 同上（`UseWPF`） | WPF 視窗與頁面、DI Host、系統匣、擷取協調、全域熱鍵、主題、日誌 |
+| `Clippings.App` | 同上（`UseWPF`） | WPF 視窗與頁面、DI 容器、系統匣、擷取協調、全域熱鍵、主題、日誌 |
 | `Clippings.Core.Tests` | 同上 | `Core` 的單元測試（xUnit） |
 
 依賴方向固定為：

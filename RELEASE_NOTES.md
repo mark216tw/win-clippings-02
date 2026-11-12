@@ -1,15 +1,30 @@
-# Clippings 剪貼簿 2 1.28.2（待發佈）
+# Clippings 剪貼簿 2 1.28.3
 
 ## 啟動速度提升
 
 - 移除未使用的內嵌資料庫，啟動時不再初始化 EF Core/SQLite。
 - 開機自動啟動與命令列擷取不再建立主視窗，系統匣常駐更快就緒。
-- 主視窗先顯示外殼，再載入擷圖工作區；系統匣選單於閒置時建立。
+- 主視窗改為先顯示，再依序建立系統匣與註冊熱鍵。
+- 擷圖工作區先顯示外殼再載入；空白工作區不建立編輯器。
 - 擷圖工作區還原只讀取圖片尺寸，開啟更順暢。
+- 精簡發佈內容，移除未使用的相依組件。
 
 ## 注意
 
+- 系統音訊錄影改用 NAudio.Wasapi，功能不變。
 - 舊版 `clippings.db` 不再使用，可自行刪除；設定與工作區暫存位置不變。
+
+## 下載
+
+- `win-x64`：適用 Intel、AMD 64 位元 Windows 電腦。
+- `win-arm64`：適用 ARM64 Windows 電腦。
+
+僅提供 framework-dependent ZIP，不提供安裝檔。需安裝對應架構的 [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0)；解壓縮後執行 `Clippings.App.New.exe`。
+
+## SHA-256
+
+- `Clippings-1.28.3-win-x64-framework-dependent.zip`：`23C43992DB372FB63458B29A9464BA0C7D427CC0C9145935E6CB4535AAC2571C`
+- `Clippings-1.28.3-win-arm64-framework-dependent.zip`：`04A72C8AC54C952BF1F138C446ABE1BC47C61A8877B7ACA156B8A289F837C4B2`
 
 ---
 

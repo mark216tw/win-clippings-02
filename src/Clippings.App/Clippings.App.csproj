@@ -17,7 +17,7 @@
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" />
     <PackageReference Include="H.NotifyIcon.Wpf" />
-    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Microsoft.Extensions.Logging.Debug" />
     <PackageReference Include="SkiaSharp" />
     <PackageReference Include="SkiaSharp.Views.WPF" />
