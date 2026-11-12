@@ -306,7 +306,6 @@ $p.ExitCode
 
 | 內容 | 路徑 |
 | --- | --- |
-| 資料庫 | `%LOCALAPPDATA%\Clippings.App.New\clippings.db` |
 | 擷圖頁籤暫存 | `%LOCALAPPDATA%\Clippings.App.New\workspace\` |
 | 設定 | `%LOCALAPPDATA%\Clippings.App.New\settings.json` |
 | 日誌 | `%LOCALAPPDATA%\Clippings.App.New\logs\` |
@@ -318,8 +317,6 @@ $p.ExitCode
 3. 還原時將資料夾放回相同位置再啟動程式。
 
 新 APP ID 不會自動讀取舊版 `%LOCALAPPDATA%\Clippings` 的資料。
-
-SQLite 使用 WAL 模式，執行中直接複製可能得到不完整的內容，請先結束程式。
 
 ---
 

@@ -56,8 +56,8 @@ dotnet format Clippings.sln --verify-no-changes --no-restore
 
 | 平台 | 特性 | 需求 | 約略大小 |
 | --- | --- | --- | ---: |
-| x64 | framework-dependent，關閉 ReadyToRun | .NET 10 Desktop Runtime（x64） | 17.5 MB |
-| ARM64 | framework-dependent，關閉 ReadyToRun | .NET 10 Desktop Runtime（ARM64） | 16.8 MB |
+| x64 | framework-dependent，關閉 ReadyToRun | .NET 10 Desktop Runtime（x64） | 約 12 MB |
+| ARM64 | framework-dependent，關閉 ReadyToRun | .NET 10 Desktop Runtime（ARM64） | 約 11.5 MB |
 
 僅在明確需要發佈時執行 Release。
 
@@ -73,7 +73,7 @@ dotnet publish src/Clippings.App/Clippings.App.csproj `
 - 不包含 .NET 與 WPF 執行階段，因此檔案明顯較小。
 - 目標電腦需安裝 **.NET 10 Desktop Runtime（x64）**。
 - `PublishReadyToRun=false`：避免預先編譯增加體積。
-- 仍會在應用程式目錄包含 SkiaSharp、SQLite 等原生函式庫。
+- 仍會在應用程式目錄包含 SkiaSharp 等原生函式庫。
 
 ### 4.2 ARM64 精簡版（framework-dependent）
 
@@ -90,7 +90,7 @@ dotnet publish src/Clippings.App/Clippings.App.csproj `
 ### 4.3 打包 ZIP
 
 ```powershell
-$version = "1.28.1"
+$version = "1.28.2"
 New-Item -ItemType Directory -Force artifacts | Out-Null
 
 # x64 精簡版（排除 PDB）
@@ -116,9 +116,9 @@ Get-FileHash "artifacts\Clippings-$version-win-arm64-framework-dependent.zip" -A
 版本集中於 `Directory.Build.props`：
 
 ```xml
-<Version>1.28.1</Version>
+<Version>1.28.2</Version>
 <AssemblyVersion>1.28.0.0</AssemblyVersion>
-<FileVersion>1.28.1.0</FileVersion>
+<FileVersion>1.28.2.0</FileVersion>
 ```
 
 - `Version`：`主.次.修`，每次功能變更遞增。
@@ -147,22 +147,22 @@ Get-FileHash "artifacts\Clippings-$version-win-arm64-framework-dependent.zip" -A
 
 ```powershell
 # 建立標籤
-git tag v1.28.1
-git push origin v1.28.1
+git tag v1.28.2
+git push origin v1.28.2
 
 # 建立 Release 並上傳兩個資產
-gh release create v1.28.1 `
-  "artifacts\Clippings-1.28.1-win-x64-framework-dependent.zip" `
-  "artifacts\Clippings-1.28.1-win-arm64-framework-dependent.zip" `
-  --title "Clippings 剪貼簿 2 1.28.1" `
-  --notes-file "artifacts\release-notes-1.28.1.md"
+gh release create v1.28.2 `
+  "artifacts\Clippings-1.28.2-win-x64-framework-dependent.zip" `
+  "artifacts\Clippings-1.28.2-win-arm64-framework-dependent.zip" `
+  --title "Clippings 剪貼簿 2 1.28.2" `
+  --notes-file "artifacts\release-notes-1.28.2.md"
 ```
 
 若 Release 已存在，改用 `gh release upload` 補上資產：
 
 ```powershell
-gh release upload v1.28.1 "artifacts\Clippings-1.28.1-win-x64-framework-dependent.zip" "artifacts\Clippings-1.28.1-win-arm64-framework-dependent.zip"
-gh release edit v1.28.1 --notes-file "artifacts\release-notes-1.28.1.md"
+gh release upload v1.28.2 "artifacts\Clippings-1.28.2-win-x64-framework-dependent.zip" "artifacts\Clippings-1.28.2-win-arm64-framework-dependent.zip"
+gh release edit v1.28.2 --notes-file "artifacts\release-notes-1.28.2.md"
 ```
 
 `release-notes` 檔案可從 `RELEASE_NOTES.md` 的最新區段擷取，或使用 `--notes` 直接輸入。
@@ -172,7 +172,7 @@ gh release edit v1.28.1 --notes-file "artifacts\release-notes-1.28.1.md"
 ## 8. 授權與第三方元件
 
 - 本專案採用 MIT License，全文見根目錄 `LICENSE`。
-- 主要第三方套件：CommunityToolkit.Mvvm、H.NotifyIcon.Wpf、SkiaSharp、EF Core、Microsoft.Extensions.Hosting。
+- 主要第三方套件：CommunityToolkit.Mvvm、H.NotifyIcon.Wpf、SkiaSharp、Microsoft.Extensions.Hosting。
 - 各套件依其原始授權條款使用；發佈時請保留相關授權資訊。
 
 ---

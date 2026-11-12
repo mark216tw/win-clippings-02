@@ -44,7 +44,7 @@ Clippings 是離線的 Windows 桌面應用程式。本文件說明程式會處�
 
 - 程式本體沒有網路呼叫。
 - 安裝與更新由使用者手動下載，不包含自動更新器。
-- 第三方套件（SkiaSharp、EF Core、CommunityToolkit.Mvvm、H.NotifyIcon、NAudio 等）在本機執行，不會主動傳送資料。
+- 第三方套件（SkiaSharp、CommunityToolkit.Mvvm、H.NotifyIcon、NAudio 等）在本機執行，不會主動傳送資料。
 - GitHub 網站與 Release 下載受 GitHub 自身的隱私政策規範。
 
 ---

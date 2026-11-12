@@ -9,7 +9,7 @@
 - **離線、免安裝**：不依賴雲端服務，self-contained 發佈即可執行。
 - **低介入常駐**：以系統匣常駐，全域快捷鍵隨時可用。
 - **可測試的核心**：與 UI、Win32 無關的邏輯放在 `Clippings.Core`，可用 xUnit 測試。
-- **清楚的平台邊界**：Win32、SkiaSharp、SQLite 等平台相依程式碼集中在 `Clippings.Platform`。
+- **清楚的平台邊界**：Win32、SkiaSharp 等平台相依程式碼集中在 `Clippings.Platform`。
 - **單一實例**：重複啟動不產生第二個常駐程式，命令列參數會轉送給既有實例。
 
 ---
@@ -28,7 +28,7 @@ flowchart TB
     subgraph Platform["Clippings.Platform"]
         CAP["Capture / Display<br/>WGC、GDI、Monitor、DPI"]
         IMG["Imaging<br/>SkiaSharp"]
-        STORE["Storage<br/>EF Core + SQLite、JSON、Run 登錄"]
+        STORE["Storage<br/>JSON、Run 登錄、舊版清理"]
         INT["Interop<br/>Win32 P/Invoke"]
         SI["SingleInstance<br/>Mutex + Named Pipe"]
     end
@@ -39,7 +39,7 @@ flowchart TB
         HELP["Helpers<br/>Hash、Path"]
         INPUT["Input<br/>HotkeyGesture"]
         START["Startup<br/>CommandLineOptions"]
-        ISTORE["IClippingsStore<br/>ISettingsStore"]
+        ISTORE["ISettingsStore"]
     end
 
     UI --> SVC
@@ -57,7 +57,7 @@ flowchart TB
 | 專案 | 目標框架 | 責任 |
 | --- | --- | --- |
 | `Clippings.Core` | `net10.0-windows10.0.19041.0` | 純資料模型、設定、`PixelRect`、`UndoStack`、雜湊、路徑、快捷鍵格式、命令列解析、儲存介面 |
-| `Clippings.Platform` | 同上 | Windows.Graphics.Capture／GDI 螢幕擷取、螢幕列舉與 DPI、SkiaSharp 編碼、EF Core/SQLite、JSON 設定、開機登錄、單一實例管線、主控台附加 |
+| `Clippings.Platform` | 同上 | Windows.Graphics.Capture／GDI 螢幕擷取、螢幕列舉與 DPI、SkiaSharp 編碼、JSON 設定、開機登錄、單一實例管線、主控台附加 |
 | `Clippings.App` | 同上（`UseWPF`） | WPF 視窗與頁面、DI Host、系統匣、擷取協調、全域熱鍵、主題、日誌 |
 | `Clippings.Core.Tests` | 同上 | `Core` 的單元測試（xUnit） |
 
@@ -117,7 +117,6 @@ flowchart LR
 | `GlobalHotkeyService` | 單例 | `RegisterHotKey`、訊息視窗、快捷鍵分派 |
 | `ThemeService` | 單例 | 切換資源字典與標題列深色模式 |
 | `SingleInstanceService` | 單例 | Mutex 判斷、Named Pipe 轉送啟動參數 |
-| `ClippingsStore` | 單例 | SQLite 設定與舊版資料表存取 |
 
 ---
 
@@ -252,15 +251,13 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    DB["clippings.db<br/>SQLite（WAL）"] --> T1["Captures（舊版）"]
     FS["%LOCALAPPDATA%\\Clippings.App.New"] --> WS["workspace/*.png"]
     FS --> SET["settings.json"]
     FS --> LOG["logs/app-YYYYMMDD.log"]
 ```
 
-- `Captures` 為舊版資料表，目前不再寫入。
 - `workspace/*.png`：擷圖頁籤的自動暫存檔，關閉頁籤後保留 6 秒供吐司復原，逾時或另存新檔後刪除。
-- SQLite 啟用 WAL 模式；同一時間只有一個應用程式實例會寫入。
+- 舊版 `clippings.db` 不再開啟；啟動時僅清理已停用的剪貼簿歷史目錄與縮圖。
 
 ---
 

@@ -17,6 +17,19 @@ public static class StartupRegistrar
     {
         try
         {
+            var executable = Environment.ProcessPath;
+            var desired = enabled && !string.IsNullOrWhiteSpace(executable)
+                ? $"\"{executable}\" --autostart"
+                : null;
+
+            using (var readKey = Registry.CurrentUser.OpenSubKey(RunKeyPath, writable: false))
+            {
+                if (string.Equals(readKey?.GetValue(ValueName) as string, desired, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
             using var key = Registry.CurrentUser.OpenSubKey(RunKeyPath, writable: true)
                 ?? Registry.CurrentUser.CreateSubKey(RunKeyPath);
             if (key is null)
@@ -24,19 +37,13 @@ public static class StartupRegistrar
                 return false;
             }
 
-            if (!enabled)
+            if (desired is null)
             {
                 key.DeleteValue(ValueName, throwOnMissingValue: false);
                 return true;
             }
 
-            var executable = Environment.ProcessPath;
-            if (string.IsNullOrWhiteSpace(executable))
-            {
-                return false;
-            }
-
-            key.SetValue(ValueName, $"\"{executable}\" --autostart");
+            key.SetValue(ValueName, desired);
             return true;
         }
         catch (Exception exception) when (exception is UnauthorizedAccessException or System.Security.SecurityException or IOException)

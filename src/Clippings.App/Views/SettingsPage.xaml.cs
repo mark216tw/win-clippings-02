@@ -11,7 +11,6 @@ using Clippings.App.Strings;
 using Clippings.Core.Helpers;
 using Clippings.Core.Input;
 using Clippings.Core.Models;
-using Clippings.Core.Services;
 using Microsoft.Win32;
 
 namespace Clippings.App.Views;
@@ -48,25 +47,23 @@ public partial class SettingsPage : UserControl
     ];
 
     private readonly AppState _state;
-    private readonly IClippingsStore _store;
     private readonly GlobalHotkeyService _globalHotkeys;
     private SettingsSnapshot? _baseline;
     private IDisposable? _hotkeyDispatchSuppression;
     private bool _isLoading;
     private bool _isDirty;
 
-    public SettingsPage(AppState state, IClippingsStore store, GlobalHotkeyService globalHotkeys)
+    public SettingsPage(AppState state, GlobalHotkeyService globalHotkeys)
     {
         InitializeComponent();
 
         var informational = Assembly.GetExecutingAssembly()
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
         VersionText.Text = string.IsNullOrWhiteSpace(informational)
-            ? "v1.28.1"
+            ? "v1.28.2"
             : $"v{informational.Split('+')[0]}";
 
         _state = state;
-        _store = store;
         _globalHotkeys = globalHotkeys;
 
         DelayCombo.ItemsSource = new[] { 3, 5, 10 };
@@ -80,7 +77,7 @@ public partial class SettingsPage : UserControl
         RecordingBitrateCombo.ItemsSource = RecordingBitrateOptions;
         RecordingSystemAudioGainCombo.ItemsSource = RecordingAudioGainOptions;
 
-        LibraryPathText.Text = store.DataRoot;
+        LibraryPathText.Text = PathUtil.DefaultDataRoot;
 
         LoadSettings();
         ThemeCombo.SelectionChanged += OnThemeSelectionChanged;
@@ -344,7 +341,7 @@ public partial class SettingsPage : UserControl
     }
 
     private void OnOpenDataFolderClick(object sender, RoutedEventArgs e)
-        => OpenFolder(_store.DataRoot);
+        => OpenFolder(PathUtil.DefaultDataRoot);
 
     private void OnOpenRecordingFolderClick(object sender, RoutedEventArgs e)
         => OpenFolder(ResolveFolder(RecordingDirBox.Text, PathUtil.DefaultRecordingRoot));

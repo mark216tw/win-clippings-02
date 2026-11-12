@@ -1,6 +1,6 @@
 # Clippings 剪貼簿 2
 
-Windows 桌面擷取與標註工具，使用 .NET 10 與 WPF 開發，操作習慣參考 PicPick。程式可免安裝執行、常駐系統匣，所有資料都留在本機，不需要網路連線。此版本使用新的 APP ID `Clippings.App.New`，可與舊版 Clippings 並存。
+Windows 桌面擷取與標註工具，使用 .NET 10 與 WPF 開發。程式可免安裝執行、常駐系統匣，所有資料都留在本機，不需要網路連線。此版本使用新的 APP ID `Clippings.App.New`，可與舊版 Clippings 並存。
 
 ![.NET](https://img.shields.io/badge/.NET-10-512BD4)
 ![Platform](https://img.shields.io/badge/Windows-10%201809%2B-0078D4)
@@ -13,7 +13,7 @@ Clippings 解決日常截圖與複製貼上的重複工作：用全域快捷鍵�
 - **離線優先**：不上傳、不連線、不收集遙測資料。
 - **免安裝**：解壓縮即可執行，需安裝 .NET 10 Desktop Runtime。
 - **單一實例**：重複啟動會喚出既有視窗，命令列參數會轉送給執行中的實例。
-- **本機儲存**：設定、SQLite 資料庫與工作區暫存放在 `%LOCALAPPDATA%\Clippings.App.New`；匯出的截圖與錄影也只寫入本機資料夾。
+- **本機儲存**：設定與工作區暫存放在 `%LOCALAPPDATA%\Clippings.App.New`；匯出的截圖與錄影也只寫入本機資料夾。
 
 ## 功能特色
 
@@ -43,8 +43,8 @@ Clippings 解決日常截圖與複製貼上的重複工作：用全域快捷鍵�
 
 | 平台 | 檔案 | 大小 | 需求 |
 | --- | --- | ---: | --- |
-| x64 | `Clippings-1.28.1-win-x64-framework-dependent.zip` | 約 17.5 MB | 需安裝 .NET 10 Desktop Runtime（x64） |
-| ARM64 | `Clippings-1.28.1-win-arm64-framework-dependent.zip` | 約 16.8 MB | 需安裝 .NET 10 Desktop Runtime（ARM64） |
+| x64 | `Clippings-1.28.2-win-x64-framework-dependent.zip` | 約 12 MB | 需安裝 .NET 10 Desktop Runtime（x64） |
+| ARM64 | `Clippings-1.28.2-win-arm64-framework-dependent.zip` | 約 11.5 MB | 需安裝 .NET 10 Desktop Runtime（ARM64） |
 
 僅提供 framework-dependent ZIP，不提供安裝檔。.NET 10 Desktop Runtime 下載：<https://dotnet.microsoft.com/download/dotnet/10.0>
 
@@ -124,7 +124,6 @@ $p.ExitCode
 
 | 用途 | 路徑 |
 | --- | --- |
-| 資料庫 | `%LOCALAPPDATA%\Clippings.App.New\clippings.db` |
 | 擷圖頁籤暫存 | `%LOCALAPPDATA%\Clippings.App.New\workspace\` |
 | 設定 | `%LOCALAPPDATA%\Clippings.App.New\settings.json` |
 | 日誌 | `%LOCALAPPDATA%\Clippings.App.New\logs\` |
@@ -137,14 +136,14 @@ $p.ExitCode
 
 ```
 src/Clippings.App/        WPF：主視窗、擷圖頁籤工作區、內嵌編輯器、擷取覆蓋層、系統匣、熱鍵
-src/Clippings.Platform/   Win32 擷取、螢幕與 DPI、SkiaSharp 影像、SQLite 儲存、設定、單一實例
+src/Clippings.Platform/   Win32 擷取、螢幕與 DPI、SkiaSharp 影像、設定、單一實例
 src/Clippings.Core/       模型、註釋、PixelRect、UndoStack、設定與雜湊（可單元測試）
 tests/Clippings.Core.Tests/
 ```
 
 - UI：WPF（本專案依使用者決定不採 WinUI 3，原因見 [開發紀錄](docs/DEV_LOG.md)）。
 - 影像：SkiaSharp（Win2D 不支援 WPF 的控制項裝載）。
-- 資料：EF Core 10 + SQLite（`EnsureCreated`，無 migrations）。
+- 資料：設定以 JSON 儲存；擷圖頁籤以 `workspace\` 內的 PNG 暫存檔管理。
 - 套件版本集中於 `Directory.Packages.props`，版本與組件資訊集中於 `Directory.Build.props`。
 
 ## 文件

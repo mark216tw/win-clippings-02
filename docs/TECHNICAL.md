@@ -16,7 +16,7 @@
 | MVVM | `CommunityToolkit.Mvvm` |
 | 系統匣 | `H.NotifyIcon.Wpf` |
 | 影像 | `SkiaSharp`、`SkiaSharp.Views.WPF` |
-| 資料 | EF Core 10 + SQLite |
+| 資料 | JSON 設定、擷圖工作區暫存 PNG |
 | 日誌 | `Microsoft.Extensions.Logging` + 自訂檔案 Provider |
 | 測試 | xUnit、Microsoft.NET.Test.Sdk |
 | 平台 | x64 |
@@ -46,7 +46,7 @@ src/
     Helpers/                   HashUtil、PathUtil
     Input/                     HotkeyGesture
     Models/                    AppSettings、Annotation、CaptureItem…
-    Services/                  IClippingsStore、ISettingsStore
+    Services/                  ISettingsStore
     Startup/                   CommandLineOptions、StartupCommand
   Clippings.Platform/
     Capture/                   ScreenCaptureService
@@ -54,7 +54,7 @@ src/
     Imaging/                   ImageCodec
     Interop/                   NativeMethods、WindowHelper、ForegroundWindowTracker、ConsoleBridge
     SingleInstance/            SingleInstanceService、ActivationRequestedEventArgs
-    Storage/                   ClippingsDbContext、ClippingsStore、JsonSettingsStore、StartupRegistrar
+    Storage/                   JsonSettingsStore、StartupRegistrar、LegacyDataCleanup
   Clippings.App/
     Models/                    WorkspaceTab
     Views/                     MainWindow、CaptureWorkspacePage、SettingsPage
@@ -93,10 +93,9 @@ tests/
 
 ### 3.2 儲存介面
 
-- `IClippingsStore`：舊版擷取歷史 API 仍保留以相容既有資料庫，但新流程不再呼叫。
 - `ISettingsStore`：設定載入與儲存。
 
-介面放在 `Core`，實作放在 `Platform`，讓 UI 與商業流程不直接相依 EF Core。
+介面放在 `Core`，實作放在 `Platform`，讓 UI 與商業流程不直接相依 JSON 檔案格式。
 
 ---
 
@@ -176,13 +175,11 @@ tests/
 
 ### 4.6 資料儲存
 
-`ClippingsStore` 使用 EF Core 與 SQLite：
+擷圖頁籤由 `CaptureWorkspaceService` 管理 `workspace\*.png` 暫存檔。
 
-- 資料庫路徑：`%LOCALAPPDATA%\Clippings.App.New\clippings.db`。
-- 啟動時 `EnsureCreated()`，並啟用 `PRAGMA journal_mode=WAL`。
-- 連線啟用 `Pooling=True`，每次開啟時套用 `synchronous=NORMAL`、`temp_store=MEMORY`、`cache_size=-8192`。
-- 擷圖頁籤改由 `CaptureWorkspaceService` 管理暫存檔，不再寫入 `Captures`。
-- 啟動時會移除舊版 `ClipboardItems` 資料表、`clipboard\` 目錄與 `thumbs\clip_*.jpg`，避免已停用的剪貼簿歷史資料持續留在本機。
+- 設定由 `JsonSettingsStore` 以 JSON 儲存。
+- 啟動時在背景清理舊版 `clipboard\` 目錄與 `thumbs\clip_*.jpg`。
+- 舊版 `clippings.db` 不再開啟、寫入或讀取。
 
 ### 4.7 設定
 
@@ -244,7 +241,7 @@ HKCU\Software\Microsoft\Windows\CurrentVersion\Run
 - 目前視窗在能力可用時優先走 `WindowsGraphicsCaptureService`，失敗時退回 `ScreenCaptureService`；Windows 10 2004 以上以 `IsCursorCaptureEnabled` 控制游標，較舊系統（19041 以下）一律改用 GDI 備援以確保游標設定一致。
 - `MainWindow` 注入 `ScreenAnnotationService`，側欄「螢幕標註」按鈕呼叫 `Toggle()`，並訂閱 `SessionChanged` 同步「螢幕標註」／「結束標註」文字與 ToolTip。
 - 完成後先依動作與設定複製到剪貼簿，再編碼 PNG、計算 SHA-256，交給 `CaptureWorkspaceService` 建立頁籤暫存檔。
-- 依動作與設定執行另存與自動存檔；不再寫入 SQLite 擷取歷史。
+- 依動作與設定執行另存與自動存檔；不再寫入資料庫。
 - `CaptureInvocationSource`：`UserInterface`、`GlobalHotkey`、`CommandLine`、`QuickCapture`。
 - 只有 `GlobalHotkey` 會播放提示音；非 `CommandLine` 來源會觸發 `CaptureAdded`，由 `App` 顯示主視窗並選取新頁籤。
 - 頁籤已達 20 個時不新增，僅顯示通知；複製與自動存檔仍會完成。
@@ -321,30 +318,19 @@ HKCU\Software\Microsoft\Windows\CurrentVersion\Run
 ### 5.8 日誌與例外
 
 - `FileLoggerProvider` 使用容量 2048 的有界 `Channel<LogEntry>`（滿載時丟棄最舊項目），以批次方式寫入 `logs/app-yyyyMMdd.log`。
-- EF Core 的 `Database.Command` 日誌過濾為 `Warning`，避免每個查詢都寫入檔案。
-- 保留 7 天，啟動時清除過期檔案。
+- 保留 7 天，啟動後在背景清除過期檔案。
 - UI、背景與未觀察工作例外都有全域處理常式。
 
 ---
 
 ## 6. 資料格式
 
-### 6.1 SQLite
+### 6.1 儲存位置
 
-`Captures`
-
-此資料表為舊版擷取歷史庫結構，目前版本不再寫入或讀取；擷圖改以 `workspace` 暫存檔管理。
-
-| 欄位 | 型別 | 備註 |
-| --- | --- | --- |
-| Id | INTEGER | PK |
-| CreatedAt | TEXT | UTC |
-| Width／Height | INTEGER | 像素 |
-| FilePath | TEXT(1024) | PNG 路徑 |
-| ThumbnailPath | TEXT(1024) | JPEG 路徑 |
-| Hash | TEXT | SHA-256 |
-| IsFavorite | INTEGER | 收藏 |
-| Source | TEXT(128) | 例如「區域擷取」 |
+- `%LOCALAPPDATA%\Clippings.App.New\workspace\`：擷圖頁籤 PNG 暫存檔。
+- `%LOCALAPPDATA%\Clippings.App.New\settings.json`：使用者設定。
+- `%LOCALAPPDATA%\Clippings.App.New\logs\`：每日日誌。
+- 舊版 `clippings.db` 不再開啟或寫入。
 
 ### 6.2 設定檔
 

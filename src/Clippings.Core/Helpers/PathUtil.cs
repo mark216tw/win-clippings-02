@@ -25,8 +25,6 @@ public static class PathUtil
 
     public static string WorkspaceDirectory(string dataRoot) => Path.Combine(dataRoot, "workspace");
 
-    public static string DatabasePath(string dataRoot) => Path.Combine(dataRoot, "clippings.db");
-
     public static string SettingsPath(string dataRoot) => Path.Combine(dataRoot, "settings.json");
 
     public static string LogDirectory(string dataRoot) => Path.Combine(dataRoot, "logs");

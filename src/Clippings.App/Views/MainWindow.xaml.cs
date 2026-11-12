@@ -69,7 +69,8 @@ public partial class MainWindow : Window
         }
 
         _loadedOnce = true;
-        NavigateTo(NavList.SelectedIndex < 0 ? 0 : NavList.SelectedIndex);
+        var index = NavList.SelectedIndex < 0 ? 0 : NavList.SelectedIndex;
+        _ = Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() => NavigateTo(index)));
     }
 
     public void NavigateTo(int index)

@@ -5,11 +5,6 @@
              ShutdownMode="OnExplicitShutdown">
     <Application.Resources>
         <ResourceDictionary>
-            <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="Styles/Controls.xaml" />
-                <ResourceDictionary Source="Styles/Logo.xaml" />
-            </ResourceDictionary.MergedDictionaries>
-
             <tb:TaskbarIcon x:Key="TrayIcon"
                             ToolTipText="Clippings 剪貼簿 2"
                             IconSource="pack://application:,,,/Assets/clippings.ico"

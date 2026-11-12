@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Threading;
 using CommunityToolkit.Mvvm.Input;
 using Clippings.App.Helpers;
 using Clippings.App.Logging;
@@ -44,6 +45,7 @@ public partial class App : Application
     private MenuItem? _startFullScreenRecordingMenuItem;
     private MenuItem? _stopRecordingMenuItem;
     private MenuItem? _openRecordingMenuItem;
+    private IReadOnlyList<string> _hotkeyFailures = [];
     private ILogger<App>? _logger;
 
     public static bool IsDarkTheme { get; private set; }
@@ -57,8 +59,6 @@ public partial class App : Application
     public ThemeService? ThemeManager { get; private set; }
 
     public CaptureCoordinator? Coordinator { get; private set; }
-
-    public IClippingsStore? ClippingsStore { get; private set; }
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -101,6 +101,8 @@ public partial class App : Application
             return;
         }
 
+        LoadApplicationResources();
+
         _host = BuildHost(_singleInstance);
         _host.Start();
         _services = _host.Services;
@@ -114,8 +116,7 @@ public partial class App : Application
 
         State = _services.GetRequiredService<AppState>();
         ThemeManager = _services.GetRequiredService<ThemeService>();
-        ClippingsStore = _services.GetRequiredService<IClippingsStore>();
-        _ = _services.GetRequiredService<CaptureWorkspaceService>().LoadAsync();
+        _ = LegacyDataCleanup.RunAsync(PathUtil.DefaultDataRoot);
         Coordinator = _services.GetRequiredService<CaptureCoordinator>();
         _recording = _services.GetRequiredService<RecordingCoordinator>();
         _recording.StateChanged += OnRecordingStateChanged;
@@ -128,25 +129,21 @@ public partial class App : Application
         CreateTrayIcon();
         StartupRegistrar.SetEnabled(State.Settings.StartWithWindows);
 
-        _mainWindow = _services.GetRequiredService<MainWindow>();
-        MainWindow = _mainWindow;
-        Coordinator.MainWindow = _mainWindow;
-        _recording.MainWindow = _mainWindow;
         Coordinator.CaptureAdded += OnCaptureAdded;
         State.SettingsChanged += OnSettingsChanged;
 
-        var hotkeyFailures = ApplyHotkeys();
-        foreach (var failure in hotkeyFailures)
+        _hotkeyFailures = ApplyHotkeys();
+        foreach (var failure in _hotkeyFailures)
         {
             _logger.LogWarning("快捷鍵無法註冊：{Hotkey}", failure);
         }
 
         if (!options.HideMainWindow)
         {
-            _mainWindow.Show();
+            EnsureMainWindow().Show();
         }
 
-        if (hotkeyFailures.Count > 0)
+        if (_hotkeyFailures.Count > 0)
         {
             _notifications?.Show("部分快捷鍵無法啟用，可能已被其他程式使用。", isError: true);
         }
@@ -155,6 +152,13 @@ public partial class App : Application
         _singleInstance.ActivationRequested += OnActivationRequested;
 
         ExecuteStartupCommand(options.Command);
+    }
+
+    private static void LoadApplicationResources()
+    {
+        var merged = Application.Current.Resources.MergedDictionaries;
+        merged.Add(new ResourceDictionary { Source = new Uri("Styles/Controls.xaml", UriKind.Relative) });
+        merged.Add(new ResourceDictionary { Source = new Uri("Styles/Logo.xaml", UriKind.Relative) });
     }
 
     private static void ReportCommandLine(string message, MessageBoxImage icon)
@@ -248,7 +252,6 @@ public partial class App : Application
                 logging.ClearProviders();
                 logging.AddDebug();
                 logging.AddProvider(new FileLoggerProvider(FileLoggerProvider.DefaultDirectory));
-                logging.AddFilter("Microsoft.EntityFrameworkCore.Database.Command", LogLevel.Warning);
                 logging.SetMinimumLevel(LogLevel.Information);
             })
             .ConfigureServices(services =>
@@ -268,12 +271,6 @@ public partial class App : Application
                 services.AddSingleton<RecordingTargetPicker>();
                 services.AddSingleton<RecordingCountdownService>();
                 services.AddSingleton<RecordingOverlayService>();
-                services.AddSingleton<IClippingsStore>(_ =>
-                {
-                    var store = new ClippingsStore();
-                    store.Initialize();
-                    return store;
-                });
                 services.AddSingleton<CaptureWorkspaceService>();
                 services.AddSingleton<CaptureCoordinator>();
                 services.AddSingleton<RecordingCoordinator>();
@@ -289,11 +286,21 @@ public partial class App : Application
     private void CreateTrayIcon()
     {
         _trayIcon = (TaskbarIcon)FindResource("TrayIcon");
-        _trayIcon.ContextMenu = BuildTrayMenu();
         _trayIcon.MenuActivation = H.NotifyIcon.Core.PopupActivationMode.RightClick;
         _trayIcon.LeftClickCommand = new RelayCommand(ShowMainWindow);
         _trayIcon.ForceCreate();
         _notifications?.Initialize(_trayIcon);
+        _ = Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, new Action(AttachTrayMenu));
+    }
+
+    private void AttachTrayMenu()
+    {
+        if (_trayIcon is null || IsExiting)
+        {
+            return;
+        }
+
+        _trayIcon.ContextMenu = BuildTrayMenu();
     }
 
     private ContextMenu BuildTrayMenu()
@@ -428,9 +435,30 @@ public partial class App : Application
 
     private void ShowMainWindow() => ShowMainWindow(0);
 
+    private MainWindow EnsureMainWindow()
+    {
+        if (_mainWindow is not null)
+        {
+            return _mainWindow;
+        }
+
+        if (_services is null || Coordinator is null || _recording is null)
+        {
+            throw new InvalidOperationException("應用程式尚未完成初始化。");
+        }
+
+        var window = _services.GetRequiredService<MainWindow>();
+        _mainWindow = window;
+        MainWindow = window;
+        Coordinator.MainWindow = window;
+        _recording.MainWindow = window;
+        window.UpdateHotkeyStatus(_hotkeyFailures);
+        return window;
+    }
+
     private void OnCaptureAdded(object? sender, CaptureAddedEventArgs e)
     {
-        if (!e.ShowWindow || IsExiting || _mainWindow is null)
+        if (!e.ShowWindow || IsExiting)
         {
             return;
         }
@@ -448,35 +476,33 @@ public partial class App : Application
     private async Task ShowCapturedTabAsync(WorkspaceTab tab)
     {
         ShowMainWindow(0);
-        _mainWindow?.Activate();
-        if (_mainWindow is not null)
+        var window = _mainWindow;
+        if (window is not null)
         {
-            await _mainWindow.ShowWorkspaceTabAsync(tab);
+            window.Activate();
+            await window.ShowWorkspaceTabAsync(tab);
         }
     }
 
     private void ShowMainWindow(int pageIndex)
     {
-        if (_mainWindow is null)
+        var window = EnsureMainWindow();
+
+        if (!window.IsVisible)
         {
-            return;
+            window.Show();
         }
 
-        if (!_mainWindow.IsVisible)
+        if (window.WindowState == WindowState.Minimized)
         {
-            _mainWindow.Show();
+            window.WindowState = WindowState.Normal;
         }
 
-        if (_mainWindow.WindowState == WindowState.Minimized)
-        {
-            _mainWindow.WindowState = WindowState.Normal;
-        }
-
-        _mainWindow.NavigateTo(pageIndex);
-        _mainWindow.Activate();
-        _mainWindow.Topmost = true;
-        _mainWindow.Topmost = false;
-        _mainWindow.Focus();
+        window.NavigateTo(pageIndex);
+        window.Activate();
+        window.Topmost = true;
+        window.Topmost = false;
+        window.Focus();
     }
 
     public IReadOnlyList<string> ApplyHotkeys()
@@ -497,6 +523,7 @@ public partial class App : Application
         Register(settings.HotkeyDelayed, () => _ = Coordinator.CaptureDelayedAsync(CaptureInvocationSource.GlobalHotkey));
         Register(settings.HotkeyAnnotate, () => _annotations?.Toggle());
 
+        _hotkeyFailures = failures;
         _mainWindow?.UpdateHotkeyStatus(failures);
         return failures;
 

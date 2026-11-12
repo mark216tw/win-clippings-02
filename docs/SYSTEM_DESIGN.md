@@ -120,7 +120,7 @@ flowchart LR
 | Core.Startup | 命令列解析 | 啟動流程 |
 | Platform.Capture | 螢幕像素取得 | 框選 UI |
 | Platform.Imaging | 編碼、解碼、縮圖、裁切、旋轉／翻轉 | 標註合成 |
-| Platform.Storage | SQLite、檔案、設定、登錄 | 商業流程 |
+| Platform.Storage | 檔案、設定、登錄、舊版清理 | 商業流程 |
 | Platform.SingleInstance | Mutex 與管線轉送 | 參數解讀 |
 | App.Services | 流程協調、監聽、熱鍵、主題 | 平台細節 |
 | App.Views | 視窗、頁面、互動 | 資料持久化 |
@@ -142,11 +142,11 @@ flowchart LR
 - 目前視窗在 Windows 10 1903 以上優先使用 Windows.Graphics.Capture，補強被其他視窗遮擋的情境。
 - Windows.Graphics.Capture 不支援或失敗時自動退回 GDI，不提高應用程式的最低 Windows 版本。
 
-### 7.3 SQLite 中繼資料 + 外部圖檔
+### 7.3 暫存檔而非資料庫
 
-- 不在資料庫存放大型 BLOB，避免資料庫膨脹與備份困難。
-- 原圖與縮圖以檔案保存，刪除資料列時同步刪除檔案。
-- 縮圖最長邊 320 px，降低歷史頁載入成本。
+- 擷圖頁籤以 `workspace\*.png` 檔案暫存，避免資料庫膨脹與備份困難。
+- 關閉頁籤後保留 6 秒供吐司復原，逾時或另存新檔後刪除。
+- 舊版 `clippings.db` 不再開啟或寫入。
 
 ### 7.4 JSON 設定而非資料庫
 
@@ -233,7 +233,6 @@ stateDiagram-v2
 ## 10. 資料保留與一致性
 
 - 擷圖頁籤暫存檔在編輯後自動更新；關閉頁籤後保留 6 秒供吐司復原，逾時或另存新檔後刪除。
-- SQLite 使用 WAL；建議備份前先結束程式。
 
 ---
 
@@ -251,7 +250,7 @@ stateDiagram-v2
 | 層級 | 方式 |
 | --- | --- |
 | Core | xUnit 單元測試：快捷鍵、幾何、復原堆疊、設定、雜湊、命令列 |
-| Platform | 以手動或整合測試驗證 Windows.Graphics.Capture、GDI、SQLite、管線 |
+| Platform | 以手動或整合測試驗證 Windows.Graphics.Capture、GDI、管線 |
 | UI | 手動操作驗證框選、編輯器、設定、系統匣 |
 | 建置 | `dotnet build`、`dotnet test`、`dotnet format --verify-no-changes` |
 

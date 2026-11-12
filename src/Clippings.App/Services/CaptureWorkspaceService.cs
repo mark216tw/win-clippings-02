@@ -69,8 +69,9 @@ public sealed class CaptureWorkspaceService
                 {
                     try
                     {
-                        using var bitmap = ImageCodec.Load(path);
-                        items.Add((path, bitmap.Width, bitmap.Height));
+                        using var codec = SKCodec.Create(path)
+                            ?? throw new InvalidOperationException("無法讀取影像資訊。");
+                        items.Add((path, codec.Info.Width, codec.Info.Height));
                     }
                     catch (Exception exception)
                     {

@@ -4,6 +4,47 @@
 
 ---
 
+## 2026-11-12 - 加速啟動（v1.28.2）
+
+### 目標
+
+縮短一般啟動、開機自動啟動（系統匣常駐）與命令列擷取的啟動時間，並移除未使用的資料庫相依。
+
+### 變更
+
+- `App.xaml.cs`：
+  - 移除 `IClippingsStore` 註冊與屬性；改以背景執行 `LegacyDataCleanup`。
+  - 新增 `EnsureMainWindow()`，`MainWindow` 改為第一次需要顯示時才建立；隱藏啟動（`--autostart`、`--capture-*`、`--annotate`）不建立視窗。
+  - 熱鍵註冊失敗清單保留於欄位，視窗建立時再套用。
+  - 系統匣圖示先 `ForceCreate`，選單改由 `DispatcherPriority.ApplicationIdle` 建立。
+  - `App.xaml` 的 `Controls.xaml`／`Logo.xaml` 合併移到單一實例判斷後（`LoadApplicationResources`）。
+- `Views/MainWindow.xaml.cs`：`Loaded` 改以 `DispatcherPriority.Background` 延後巡覽，讓視窗外殼先繪製。
+- `Services/CaptureWorkspaceService.cs`：工作區還原改用 `SKCodec.Create` 只讀尺寸，不再完整解碼 PNG。
+- `Logging/FileLoggerProvider.cs`、`Services/RecordingCoordinator.cs`：日誌清理與錄影暫存清理改為背景工作。
+- `Platform/Storage/StartupRegistrar.cs`：開機登錄值相同時不再重寫。
+- 移除 `ClippingsStore`、`ClippingsDbContext`、`SqlitePragmaInterceptor`、`IClippingsStore`、`CaptureItem` 與 `Microsoft.EntityFrameworkCore.Sqlite` 相依；`PathUtil.DatabasePath` 一併移除。
+- 新增 `Platform/Storage/LegacyDataCleanup.cs`，保留舊版剪貼簿歷史目錄與縮圖清理。
+- 更新 `README.md`、`docs/ARCHITECTURE.md`、`docs/TECHNICAL.md`、`docs/SYSTEM_DESIGN.md`、`docs/USER_GUIDE.md`、`docs/PRIVACY.md`、`docs/BUILD_AND_RELEASE.md` 的資料儲存描述。
+
+### 問題與解法
+
+- **Debug 量測（暫時記錄啟動耗時後移除）**：一般啟動首次繪製由約 4.38 s 降至約 1.78 s；`--autostart` 就緒由約 2.43 s 降至約 0.99 s。
+- **EF Core + SQLite 初始化佔啟動約 1.1–1.3 s**：確認資料層所有查詢方法皆無人呼叫，只有 `SettingsPage` 讀取 `DataRoot`，因此直接移除。
+- **系統匣選單建立約 0.68 s（Debug）**：`ForceCreate` 僅約 38 ms，改成閒置時建立選單後，不再擋住視窗出現。
+- **延後建立視窗後 `CaptureAdded` 收不到**：事件訂閱留在啟動時，`OnCaptureAdded` 改為需要時才建立視窗。
+- **`App.xaml` 資源延後合併**：第二實例轉發不再解析 41 KB 的 `Controls.xaml`。
+
+### 待辦
+
+- 尚未在 Release 組建與混合 DPI 多螢幕環境實測啟動時間。
+- 舊版 `clippings.db` 未自動刪除，僅不再開啟；如需釋放空間可由使用者自行移除。
+
+### 日期與版本
+
+2026-11-12，v1.28.2。
+
+---
+
 ## 2026-11-11 - 修正吐司文字模糊（v1.28.1）
 
 ### 目標
