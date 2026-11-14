@@ -15,4 +15,5 @@ public enum AnnotationTool
     Pan,
     Laser,
     Eraser,
+    Magnifier,
 }

@@ -73,7 +73,7 @@ public class AppSettingsTests
 
         Assert.Equal(AnnotationTool.Pen, annotation.Tool);
         Assert.Equal(0xFFFF3B30u, annotation.ColorArgb);
-        Assert.Equal(4f, annotation.StrokeWidth);
+        Assert.Equal(6f, annotation.StrokeWidth);
         Assert.False(annotation.ClickThrough);
         Assert.Equal(AnnotationBackdrop.Screen, annotation.Backdrop);
     }
@@ -90,7 +90,7 @@ public class AppSettingsTests
         clone.Annotation.Backdrop = AnnotationBackdrop.Whiteboard;
 
         Assert.Equal(AnnotationTool.Pen, settings.Annotation.Tool);
-        Assert.Equal(4f, settings.Annotation.StrokeWidth);
+        Assert.Equal(6f, settings.Annotation.StrokeWidth);
         Assert.False(settings.Annotation.ClickThrough);
         Assert.Equal(AnnotationBackdrop.Screen, settings.Annotation.Backdrop);
     }

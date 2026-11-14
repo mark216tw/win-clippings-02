@@ -21,6 +21,21 @@ public static class WindowHelper
         return NativeMethods.SetWindowDisplayAffinity(handle, NativeMethods.WdaMonitor);
     }
 
+    public static bool SetCaptureExclusion(IntPtr handle, bool exclude)
+    {
+        if (handle == IntPtr.Zero)
+        {
+            return false;
+        }
+
+        if (!exclude)
+        {
+            return NativeMethods.SetWindowDisplayAffinity(handle, NativeMethods.WdaNone);
+        }
+
+        return NativeMethods.SetWindowDisplayAffinity(handle, NativeMethods.WdaExcludeFromCapture);
+    }
+
     public static void SetClickThrough(IntPtr handle, bool clickThrough)
     {
         if (handle == IntPtr.Zero)

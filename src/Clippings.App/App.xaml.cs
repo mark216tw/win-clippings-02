@@ -46,6 +46,7 @@ public partial class App : Application
     private MenuItem? _openRecordingMenuItem;
     private IReadOnlyList<string> _hotkeyFailures = [];
     private ILogger<App>? _logger;
+    private bool _exitRequested;
 
     public static bool IsDarkTheme { get; private set; }
 
@@ -335,7 +336,7 @@ public partial class App : Application
         menu.Items.Add(CreateMenuItem("開啟資料夾", OpenDataFolder));
         menu.Items.Add(CreateMenuItem("設定", () => ShowMainWindow(1)));
         menu.Items.Add(CreateSeparator());
-        menu.Items.Add(CreateMenuItem("結束", ExitApplication));
+        menu.Items.Add(CreateMenuItem("結束", RequestExit));
 
         return menu;
     }
@@ -564,7 +565,18 @@ public partial class App : Application
         IsDarkTheme = ThemeManager.IsDark;
     }
 
-    private async void ExitApplication()
+    public void RequestExit()
+    {
+        if (IsExiting || _exitRequested)
+        {
+            return;
+        }
+
+        _exitRequested = true;
+        _ = ExitApplicationAsync();
+    }
+
+    private async Task ExitApplicationAsync()
     {
         if (_mainWindow is not null)
         {

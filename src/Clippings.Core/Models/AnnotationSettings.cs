@@ -6,7 +6,7 @@ public sealed class AnnotationSettings
 
     public uint ColorArgb { get; set; } = 0xFFFF3B30;
 
-    public float StrokeWidth { get; set; } = 4f;
+    public float StrokeWidth { get; set; } = 6f;
 
     public bool ClickThrough { get; set; }
 

@@ -4,6 +4,79 @@
 
 ---
 
+## 2026-11-14 - 螢幕標註線寬與放大鏡調整（v1.29.1）
+
+### 目標
+
+讓螢幕標註的預設線寬更清楚易見，並加大放大鏡可視範圍與縮放上限。
+
+### 變更
+
+- `Core/Models/AnnotationSettings.cs`：`StrokeWidth` 預設值 4f → 6f
+- `App/Services/ScreenAnnotationService.cs`：`StrokeWidth` 初值 4f → 6f
+- `App/Views/AnnotationOverlayWindow.xaml.cs`：`LensDiameter` 200f → 300f、`MaximumLensZoom` 6f → 10f
+- `tests/Clippings.Core.Tests/AppSettingsTests.cs`：預設線寬與 Clone 斷言更新為 6f
+- `RELEASE_NOTES.md`、`docs/USER_GUIDE.md`：同步 1.29.1 說明、放大鏡倍率（1x～10x）與下載資訊
+
+### 驗證與發佈
+
+- `dotnet build Clippings.sln -c Debug -p:Platform=x64`：成功，0 警告 0 錯誤
+- `dotnet test`：106 項全數通過
+- `dotnet format Clippings.sln --verify-no-changes --no-restore`：通過
+- Release 資產（framework-dependent、ZIP 排除 PDB）：
+  - `Clippings-1.29.1-win-x64-framework-dependent.zip`（14,763,055 bytes，SHA-256 `C3B28618BEBEB7E05BE37A3A13D59FD0F1BDE6C8843D2F0C8ECB443FAA06E2C7`）
+  - `Clippings-1.29.1-win-arm64-framework-dependent.zip`（14,164,056 bytes，SHA-256 `1D795EE7E17435815738146A787E0E952C866AFD27AA7A237D053CA68FE7499E`）
+
+### 問題與解法
+
+- 工具列線寬選項（2/4/6/8/12）與同步邏輯已含 6 px，僅需調整預設值，UI 無須變動。
+
+### 待辦
+
+- 使用者既有設定中的線寬會沿用上次值，新預設僅對未調整過線寬的設定生效。
+- 放大鏡 10x 下每格滾輪為 0.5x，尚未實機檢視大鏡片在邊界的取樣與定位。
+
+### 日期與版本
+
+2026-11-14，v1.29.1。
+
+---
+
+## 2026-11-14 - 螢幕標註放大鏡、主畫面結束與錄影視窗圖示（v1.29.0）
+
+### 目標
+
+在螢幕標註工具列加入可局部放大畫面的放大鏡；讓主畫面能直接完全結束程式（不只縮到系統匣）；選擇視窗錄影時在視窗名稱前顯示程序圖示，方便辨識。
+
+### 變更
+
+- `Core/Models/AnnotationTool.cs`：列舉尾端新增 `Magnifier`，不影響既有設定值。
+- `App/Services/ScreenAnnotationService.cs`：注入 `ScreenCaptureService`；加入 `M` 快捷鍵、放大鏡擷取方法（暫時以 `WDA_EXCLUDEFROMCAPTURE` 排除標註視窗與工具列）與虛擬桌面快取。
+- `Platform/Interop/WindowHelper.cs`、`NativeMethods.cs`：新增 `SetCaptureExclusion()`，可切換 `WDA_EXCLUDEFROMCAPTURE` 與還原。
+- `App/Views/AnnotationOverlayWindow.xaml(.cs)`：放大鏡 33 ms 更新計時器、滾輪縮放、圓形鏡片、放大後的標註筆畫、倍率標籤與邊界夾取。
+- `App/Views/AnnotationToolbarWindow.xaml(.cs)`：新增放大鏡按鈕與狀態同步。
+- `App/Views/MainWindow.xaml(.cs)`、`App.xaml.cs`、`Strings/AppStrings.cs`：側欄新增「結束」按鈕與二次確認；`ExitApplication` 改為公開 `RequestExit()` 並加防重入。
+- `Platform/Interop/WindowRecordingTarget.cs`、`WindowEnumerationService.cs`：帶出程式執行檔路徑。
+- `App/Helpers/ShellIconHelper.cs`（新增）、`Views/RecordingTargetDialog.xaml(.cs)`：以 `SHGetFileInfo` 取得 exe 圖示並快取，清單改綁含圖示的項目。
+
+### 問題與解法
+
+- **鏡片拍到自身**：直接擷取畫面會把放大鏡畫面再拍進去。改為擷取前暫時排除標註 overlay 與工具列，擷取後立即還原；一般「截圖」功能不受影響。
+- **SkiaSharp 4 API 過時**：`SKPath.AddCircle` 已過時、`ClipPath` 需明確指定 `SKClipOperation`；改用 `SKPathBuilder` 建圓並指定交集裁切。
+- **多螢幕 DPI 換算**：每次更新都重新列舉螢幕成本過高，啟動標註時快取螢幕清單與虛擬桌面範圍，擷取時只做 DPI 換算。
+- **圖示取得失敗**：提升權限或系統程序可能無法讀取 `MainModule.FileName`；改為允許 `ExecutablePath` 為 null，並以 shell 預設 exe 圖示回退。
+
+### 待辦
+
+- 尚未實測混合 DPI 多螢幕下的放大鏡位置與倍率。
+- 放大鏡需 Windows 10 2004（build 19041）以上；舊版系統不顯示鏡片畫面，已寫入 README 已知限制。
+
+### 日期與版本
+
+2026-11-14，v1.29.0。
+
+---
+
 ## 2026-11-12 - 第二波啟動優化（v1.28.3）
 
 ### 目標

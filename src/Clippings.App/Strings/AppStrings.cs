@@ -34,6 +34,9 @@ public static class AppStrings
     public const string ScreenAnnotationToolTip = "開始螢幕標註";
     public const string StopScreenAnnotation = "結束標註";
     public const string StopScreenAnnotationToolTip = "結束目前的螢幕標註";
+    public const string ExitApp = "結束";
+    public const string ExitAppToolTip = "完全結束 Clippings（含系統匣常駐）";
+    public const string ExitAppConfirm = "確定要完全結束 Clippings 嗎？\n若正在錄影，會先停止並儲存影片。";
     public const string StartWindowRecording = "選擇視窗錄影";
     public const string StartFullScreenRecording = "全螢幕錄影";
     public const string RecordingFullScreen = "全螢幕";

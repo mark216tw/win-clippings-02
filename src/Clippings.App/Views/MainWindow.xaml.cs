@@ -180,6 +180,27 @@ public partial class MainWindow : Window
     private void OnScreenAnnotationClick(object sender, RoutedEventArgs e)
         => _annotations.Toggle();
 
+    private void OnExitAppClick(object sender, RoutedEventArgs e)
+    {
+        if (MessageBox.Show(
+                this,
+                AppStrings.ExitAppConfirm,
+                AppStrings.ExitApp,
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question,
+                MessageBoxResult.No) != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        if (_settingsPage?.ConfirmLeave() == false)
+        {
+            return;
+        }
+
+        App.Current.RequestExit();
+    }
+
     private void OnAnnotationSessionChanged(object? sender, EventArgs e)
     {
         if (Dispatcher.CheckAccess())

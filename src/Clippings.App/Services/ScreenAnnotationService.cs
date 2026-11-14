@@ -1,6 +1,8 @@
 using Clippings.App.Helpers;
 using Clippings.App.Views;
+using Clippings.Core.Editing;
 using Clippings.Core.Models;
+using Clippings.Platform.Capture;
 using Clippings.Platform.Display;
 using Clippings.Platform.Interop;
 using Microsoft.Extensions.Logging;
@@ -12,19 +14,25 @@ namespace Clippings.App.Services;
 public sealed class ScreenAnnotationService
 {
     private readonly MonitorService _monitors;
+    private readonly ScreenCaptureService _capture;
     private readonly AppState _state;
     private readonly ILogger<ScreenAnnotationService> _logger;
     private readonly List<AnnotationOverlayWindow> _overlays = [];
+    private IReadOnlyList<MonitorInfo> _monitorSnapshot = [];
+    private PixelRect _virtualBounds = PixelRect.Empty;
     private AnnotationToolbarWindow? _toolbar;
     private bool _toolbarHiddenForCapture;
     private bool _overlaysHiddenForCapture;
+    private bool _magnifierExclusionUnsupported;
 
     public ScreenAnnotationService(
         MonitorService monitors,
+        ScreenCaptureService capture,
         AppState state,
         ILogger<ScreenAnnotationService> logger)
     {
         _monitors = monitors;
+        _capture = capture;
         _state = state;
         _logger = logger;
     }
@@ -35,7 +43,7 @@ public sealed class ScreenAnnotationService
 
     public SKColor Color { get; private set; } = new(0xFF, 0x3B, 0x30);
 
-    public float StrokeWidth { get; private set; } = 4f;
+    public float StrokeWidth { get; private set; } = 6f;
 
     public bool ClickThrough { get; private set; }
 
@@ -44,6 +52,8 @@ public sealed class ScreenAnnotationService
     public AnnotationBackdrop Backdrop { get; private set; } = AnnotationBackdrop.Screen;
 
     public bool IsActive => _overlays.Count > 0;
+
+    public PixelRect VirtualBounds => _virtualBounds;
 
     public CaptureCoordinator? CaptureCoordinator { get; set; }
 
@@ -80,6 +90,8 @@ public sealed class ScreenAnnotationService
         Document = new AnnotationDocument();
 
         var monitors = _monitors.GetMonitors();
+        _monitorSnapshot = monitors;
+        _virtualBounds = _monitors.GetVirtualBounds(monitors);
         if (monitors.Count == 0)
         {
             _logger.LogWarning("找不到可標註的螢幕。");
@@ -129,8 +141,11 @@ public sealed class ScreenAnnotationService
         _overlays.Clear();
         _toolbar?.Close();
         _toolbar = null;
+        _monitorSnapshot = [];
+        _virtualBounds = PixelRect.Empty;
         _toolbarHiddenForCapture = false;
         _overlaysHiddenForCapture = false;
+        _magnifierExclusionUnsupported = false;
         _logger.LogInformation("螢幕標註已結束。");
         SessionChanged?.Invoke(this, EventArgs.Empty);
     }
@@ -189,6 +204,9 @@ public sealed class ScreenAnnotationService
             case Key.NumPad8:
             case Key.E:
                 SetTool(AnnotationTool.Eraser);
+                return true;
+            case Key.M:
+                SetTool(AnnotationTool.Magnifier);
                 return true;
             case Key.D0:
             case Key.NumPad0:
@@ -275,6 +293,59 @@ public sealed class ScreenAnnotationService
     public void RequestCapture()
         => _ = CaptureCoordinator?.CaptureFullScreenAsync(CaptureInvocationSource.UserInterface);
 
+    public SKBitmap? TryCaptureMagnifierRegion(PixelRect sourceBounds)
+    {
+        if (sourceBounds.IsEmpty)
+        {
+            return null;
+        }
+
+        var handles = new List<IntPtr>();
+        foreach (var overlay in _overlays)
+        {
+            if (overlay.Handle != IntPtr.Zero)
+            {
+                handles.Add(overlay.Handle);
+            }
+        }
+
+        if (_toolbar?.Handle is { } toolbarHandle && toolbarHandle != IntPtr.Zero)
+        {
+            handles.Add(toolbarHandle);
+        }
+
+        try
+        {
+            foreach (var handle in handles)
+            {
+                if (!WindowHelper.SetCaptureExclusion(handle, true))
+                {
+                    if (!_magnifierExclusionUnsupported)
+                    {
+                        _magnifierExclusionUnsupported = true;
+                        _logger.LogWarning("此系統不支援放大鏡所需的視窗擷取排除。");
+                    }
+
+                    return null;
+                }
+            }
+
+            return _capture.CaptureScreenRegion(sourceBounds, _monitorSnapshot);
+        }
+        catch (Exception exception)
+        {
+            _logger.LogWarning(exception, "放大鏡畫面擷取失敗。");
+            return null;
+        }
+        finally
+        {
+            foreach (var handle in handles)
+            {
+                _ = WindowHelper.SetCaptureExclusion(handle, false);
+            }
+        }
+    }
+
     public void EnsureToolbarOnTop()
     {
         if (_toolbar is null)
@@ -354,5 +425,6 @@ public sealed class ScreenAnnotationService
         AnnotationTool.Arrow or
         AnnotationTool.Rectangle or
         AnnotationTool.Ellipse or
-        AnnotationTool.Eraser;
+        AnnotationTool.Eraser or
+        AnnotationTool.Magnifier;
 }

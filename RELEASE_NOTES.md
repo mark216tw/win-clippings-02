@@ -1,3 +1,43 @@
+# Clippings 剪貼簿 2 1.29.1
+
+## 螢幕標註放大鏡
+
+- 浮動工具列新增放大鏡工具（快捷鍵 `M`），跟隨游標局部放大畫面。
+- 滑鼠滾輪可調整倍率（1x～10x），放大鏡內會同步放大已繪製的標註。
+- 鏡片直徑加大至 300 DIP，更容易看清細節。
+- 放大鏡擷取時會暫時排除標註視窗，避免鏡片拍到自身造成遞迴畫面。
+
+## 螢幕標註線寬
+
+- 預設線寬由 4 px 調整為 6 px，標註更清楚易見。
+
+## 主畫面結束按鈕
+
+- 側欄底部新增「結束」，確認後會停止標註與錄影，並完全結束程式（含系統匣）。
+
+## 選擇視窗錄影圖示
+
+- 視窗清單會在名稱前顯示該程式的圖示。
+
+## 注意
+
+- 放大鏡需要 Windows 10 2004（build 19041）以上；較舊系統無法顯示放大鏡畫面。
+- 既有設定中的線寬會沿用上次選擇；未調整過線寬者才會套用新的 6 px 預設值。
+
+## 下載
+
+- `win-x64`：適用 Intel、AMD 64 位元 Windows 電腦。
+- `win-arm64`：適用 ARM64 Windows 電腦。
+
+僅提供 framework-dependent ZIP，請解壓縮後使用。需安裝 [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0)；解壓縮後執行 `Clippings.App.New.exe`。
+
+## SHA-256
+
+- `Clippings-1.29.1-win-x64-framework-dependent.zip`：`C3B28618BEBEB7E05BE37A3A13D59FD0F1BDE6C8843D2F0C8ECB443FAA06E2C7`
+- `Clippings-1.29.1-win-arm64-framework-dependent.zip`：`1D795EE7E17435815738146A787E0E952C866AFD27AA7A237D053CA68FE7499E`
+
+---
+
 # Clippings 剪貼簿 2 1.28.3
 
 ## 啟動速度提升

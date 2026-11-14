@@ -22,7 +22,9 @@
         MouseMove="OnMouseMove"
         MouseLeftButtonDown="OnMouseLeftButtonDown"
         MouseLeftButtonUp="OnMouseLeftButtonUp"
-        MouseRightButtonDown="OnMouseRightButtonDown">
+        MouseRightButtonDown="OnMouseRightButtonDown"
+        MouseWheel="OnMouseWheel"
+        MouseLeave="OnMouseLeave">
 
     <Grid x:Name="RootGrid"
           Background="#01000000"

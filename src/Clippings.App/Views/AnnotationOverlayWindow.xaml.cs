@@ -19,6 +19,10 @@ public partial class AnnotationOverlayWindow : Window
     private const float MinimumStrokeDistance = 1.5f;
     private const float MinimumShapeDistance = 3f;
     private const float LaserLifetimeMilliseconds = 400f;
+    private const float LensDiameter = 300f;
+    private const float MinimumLensZoom = 1f;
+    private const float MaximumLensZoom = 10f;
+    private const float LensZoomStep = 0.5f;
 
     private static readonly SKTypeface OverlayTypeface =
         SKTypeface.FromFamilyName("Microsoft JhengHei UI") ?? SKTypeface.Default;
@@ -27,10 +31,16 @@ public partial class AnnotationOverlayWindow : Window
     private readonly MonitorInfo _monitor;
     private readonly LaserTrail _laser = new(LaserLifetimeMilliseconds);
     private readonly DispatcherTimer _laserTimer;
+    private readonly DispatcherTimer _lensTimer;
 
     private Annotation? _draft;
     private List<Vector2>? _draftPoints;
     private bool _erasing;
+    private SKBitmap? _lensBitmap;
+    private Vector2 _lensCenter;
+    private PixelRect _lensSource = PixelRect.Empty;
+    private float _lensZoom = 2f;
+    private bool _lensVisible;
 
     public AnnotationOverlayWindow(ScreenAnnotationService service, MonitorInfo monitor)
     {
@@ -55,6 +65,12 @@ public partial class AnnotationOverlayWindow : Window
                 Interval = TimeSpan.FromMilliseconds(33),
             };
             _laserTimer.Tick += OnLaserTimerTick;
+
+            _lensTimer = new DispatcherTimer(DispatcherPriority.Render)
+            {
+                Interval = TimeSpan.FromMilliseconds(33),
+            };
+            _lensTimer.Tick += OnLensTimerTick;
 
             _service.ToolStateChanged += OnToolStateChanged;
             _service.Document.Changed += OnDocumentChanged;
@@ -90,6 +106,9 @@ public partial class AnnotationOverlayWindow : Window
         _service.Document.Changed -= OnDocumentChanged;
         _laserTimer.Stop();
         _laserTimer.Tick -= OnLaserTimerTick;
+        _lensTimer.Stop();
+        _lensTimer.Tick -= OnLensTimerTick;
+        DisposeLensBitmap();
     }
 
     private void OnActivated(object? sender, EventArgs e) => _service.EnsureToolbarOnTop();
@@ -121,6 +140,8 @@ public partial class AnnotationOverlayWindow : Window
                 _service.Color,
                 MathF.Max(3f, _service.StrokeWidth));
         }
+
+        DrawLens(canvas);
     }
 
     private SKColor BackdropColor() => _service.Backdrop switch
@@ -133,6 +154,20 @@ public partial class AnnotationOverlayWindow : Window
     private void OnMouseMove(object sender, MouseEventArgs e)
     {
         var position = ToPoint(ClampToWindow(e.GetPosition(CanvasElement)));
+
+        if (_service.Tool == AnnotationTool.Magnifier && !_service.ClickThrough)
+        {
+            _lensCenter = position;
+            _lensVisible = true;
+            CaptureLensSample();
+            if (!_lensTimer.IsEnabled)
+            {
+                _lensTimer.Start();
+            }
+
+            CanvasElement.InvalidateVisual();
+            return;
+        }
 
         if (_service.Tool == AnnotationTool.Laser && !_service.ClickThrough)
         {
@@ -180,6 +215,12 @@ public partial class AnnotationOverlayWindow : Window
     {
         if (e.ChangedButton != MouseButton.Left || _service.ClickThrough)
         {
+            return;
+        }
+
+        if (_service.Tool == AnnotationTool.Magnifier)
+        {
+            e.Handled = true;
             return;
         }
 
@@ -327,11 +368,213 @@ public partial class AnnotationOverlayWindow : Window
         CanvasElement.InvalidateVisual();
     }
 
+    private void OnMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (_service.Tool != AnnotationTool.Magnifier || _service.ClickThrough)
+        {
+            return;
+        }
+
+        _lensZoom = Math.Clamp(
+            _lensZoom + (e.Delta > 0 ? LensZoomStep : -LensZoomStep),
+            MinimumLensZoom,
+            MaximumLensZoom);
+        _lensVisible = _lensBitmap is not null;
+        CaptureLensSample();
+        CanvasElement.InvalidateVisual();
+        e.Handled = true;
+    }
+
+    private void OnMouseLeave(object sender, MouseEventArgs e)
+    {
+        if (_service.Tool != AnnotationTool.Magnifier)
+        {
+            return;
+        }
+
+        _lensVisible = false;
+        _lensTimer.Stop();
+        DisposeLensBitmap();
+        CanvasElement.InvalidateVisual();
+    }
+
+    private void OnLensTimerTick(object? sender, EventArgs e)
+    {
+        if (_service.Tool != AnnotationTool.Magnifier || !_lensVisible)
+        {
+            _lensTimer.Stop();
+            return;
+        }
+
+        CaptureLensSample();
+        CanvasElement.InvalidateVisual();
+    }
+
+    private void CaptureLensSample()
+    {
+        var virtualBounds = _service.VirtualBounds;
+        if (virtualBounds.IsEmpty)
+        {
+            return;
+        }
+
+        var scale = _monitor.Dpi / 96.0;
+        var requestedSize = Math.Max(1, (int)Math.Round((LensDiameter / _lensZoom) * scale));
+        var sourceWidth = Math.Min(requestedSize, virtualBounds.Width);
+        var sourceHeight = Math.Min(requestedSize, virtualBounds.Height);
+        if (sourceWidth <= 0 || sourceHeight <= 0)
+        {
+            return;
+        }
+
+        var centerX = _monitor.Bounds.X + (_lensCenter.X * scale);
+        var centerY = _monitor.Bounds.Y + (_lensCenter.Y * scale);
+        var left = Math.Clamp(
+            (int)Math.Round(centerX - (sourceWidth / 2.0)),
+            virtualBounds.X,
+            virtualBounds.Right - sourceWidth);
+        var top = Math.Clamp(
+            (int)Math.Round(centerY - (sourceHeight / 2.0)),
+            virtualBounds.Y,
+            virtualBounds.Bottom - sourceHeight);
+
+        var source = new PixelRect(left, top, sourceWidth, sourceHeight);
+        var bitmap = _service.TryCaptureMagnifierRegion(source);
+        if (bitmap is null)
+        {
+            _lensVisible = false;
+            _lensTimer.Stop();
+            DisposeLensBitmap();
+            return;
+        }
+
+        _lensBitmap?.Dispose();
+        _lensBitmap = bitmap;
+        _lensSource = source;
+    }
+
+    private void DrawLens(SKCanvas canvas)
+    {
+        if (!_lensVisible || _lensBitmap is null || _lensSource.IsEmpty)
+        {
+            return;
+        }
+
+        var center = new SKPoint(_lensCenter.X, _lensCenter.Y);
+        var radius = LensDiameter / 2f;
+        var destination = SKRect.Create(center.X - radius, center.Y - radius, LensDiameter, LensDiameter);
+
+        using var clipBuilder = new SKPathBuilder();
+        clipBuilder.AddCircle(center.X, center.Y, radius);
+        using var clip = clipBuilder.Detach();
+        canvas.Save();
+        canvas.ClipPath(clip, SKClipOperation.Intersect, true);
+        canvas.DrawBitmap(
+            _lensBitmap,
+            SKRect.Create(0, 0, _lensBitmap.Width, _lensBitmap.Height),
+            destination,
+            new SKSamplingOptions(SKFilterMode.Nearest, SKMipmapMode.None));
+        DrawMagnifiedStrokes(canvas);
+        canvas.Restore();
+
+        using var shadow = new SKPaint
+        {
+            IsAntialias = true,
+            Style = SKPaintStyle.Stroke,
+            StrokeWidth = 4f,
+            Color = new SKColor(0, 0, 0, 110),
+        };
+        using var ring = new SKPaint
+        {
+            IsAntialias = true,
+            Style = SKPaintStyle.Stroke,
+            StrokeWidth = 2f,
+            Color = SKColors.White,
+        };
+        canvas.DrawCircle(center, radius + 1f, shadow);
+        canvas.DrawCircle(center, radius, ring);
+
+        DrawZoomLabel(canvas, center, radius);
+    }
+
+    private void DrawMagnifiedStrokes(SKCanvas canvas)
+    {
+        if (!_service.StrokesVisible)
+        {
+            return;
+        }
+
+        var scale = _monitor.Dpi / 96.0;
+        var sourceWidthDip = (float)(_lensSource.Width / scale);
+        if (sourceWidthDip <= 0)
+        {
+            return;
+        }
+
+        var radius = LensDiameter / 2f;
+        var sourceLeftDip = (float)((_lensSource.X - _monitor.Bounds.X) / scale);
+        var sourceTopDip = (float)((_lensSource.Y - _monitor.Bounds.Y) / scale);
+        var zoom = LensDiameter / sourceWidthDip;
+
+        canvas.Save();
+        canvas.Translate(_lensCenter.X - radius, _lensCenter.Y - radius);
+        canvas.Scale(zoom);
+        canvas.Translate(-sourceLeftDip, -sourceTopDip);
+        foreach (var stroke in _service.Document.GetStrokes(MonitorIndex))
+        {
+            AnnotationRenderer.Draw(canvas, stroke, OverlayTypeface);
+        }
+
+        canvas.Restore();
+    }
+
+    private void DrawZoomLabel(SKCanvas canvas, SKPoint center, float radius)
+    {
+        using var font = new SKFont(OverlayTypeface, 13f, 1f, 0f);
+        using var shadowPaint = new SKPaint
+        {
+            IsAntialias = true,
+            Style = SKPaintStyle.Fill,
+            Color = new SKColor(0, 0, 0, 200),
+        };
+        using var textPaint = new SKPaint
+        {
+            IsAntialias = true,
+            Style = SKPaintStyle.Fill,
+            Color = SKColors.White,
+        };
+
+        var text = $"{_lensZoom:0.#}x";
+        var x = center.X;
+        var y = center.Y + radius + 18f;
+        if (y > ActualHeight - 4)
+        {
+            y = center.Y - radius - 6f;
+        }
+
+        canvas.DrawText(text, x + 1f, y + 1f, SKTextAlign.Center, font, shadowPaint);
+        canvas.DrawText(text, x, y, SKTextAlign.Center, font, textPaint);
+    }
+
+    private void DisposeLensBitmap()
+    {
+        _lensBitmap?.Dispose();
+        _lensBitmap = null;
+        _lensSource = PixelRect.Empty;
+    }
+
     private void OnToolStateChanged(object? sender, EventArgs e)
     {
         _draft = null;
         _draftPoints = null;
         _erasing = false;
+        if (_service.Tool != AnnotationTool.Magnifier || _service.ClickThrough)
+        {
+            _lensVisible = false;
+            _lensTimer.Stop();
+            DisposeLensBitmap();
+        }
+
         CanvasElement.InvalidateVisual();
     }
 

@@ -1,6 +1,8 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
+using Clippings.App.Helpers;
 using Clippings.Platform.Interop;
 
 namespace Clippings.App.Views;
@@ -20,19 +22,25 @@ public partial class RecordingTargetDialog : Window
 
     private void RefreshTargets()
     {
-        var targets = _windows.GetRecordingTargets();
+        var targets = _windows.GetRecordingTargets()
+            .Select(target => new TargetOption(
+                target,
+                target.Title,
+                target.ProcessName,
+                ShellIconHelper.GetIcon(target.ExecutablePath)))
+            .ToArray();
         TargetList.ItemsSource = targets;
-        TargetList.SelectedIndex = targets.Count > 0 ? 0 : -1;
-        EmptyText.Visibility = targets.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-        TargetList.Visibility = targets.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+        TargetList.SelectedIndex = targets.Length > 0 ? 0 : -1;
+        EmptyText.Visibility = targets.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+        TargetList.Visibility = targets.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private void OnSelectionChanged(object sender, SelectionChangedEventArgs e)
-        => ConfirmButton.IsEnabled = TargetList.SelectedItem is WindowRecordingTarget;
+        => ConfirmButton.IsEnabled = TargetList.SelectedItem is TargetOption;
 
     private void OnTargetDoubleClick(object sender, MouseButtonEventArgs e)
     {
-        if (TargetList.SelectedItem is WindowRecordingTarget)
+        if (TargetList.SelectedItem is TargetOption)
         {
             ConfirmSelection();
         }
@@ -55,12 +63,18 @@ public partial class RecordingTargetDialog : Window
 
     private void ConfirmSelection()
     {
-        if (TargetList.SelectedItem is not WindowRecordingTarget selected)
+        if (TargetList.SelectedItem is not TargetOption option)
         {
             return;
         }
 
-        SelectedTarget = selected;
+        SelectedTarget = option.Target;
         DialogResult = true;
     }
+
+    private sealed record TargetOption(
+        WindowRecordingTarget Target,
+        string Title,
+        string ProcessName,
+        ImageSource? Icon);
 }

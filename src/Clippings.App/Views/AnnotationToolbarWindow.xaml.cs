@@ -101,6 +101,7 @@ public partial class AnnotationToolbarWindow : Window
             RectangleButton.IsChecked = _service.Tool == AnnotationTool.Rectangle;
             EllipseButton.IsChecked = _service.Tool == AnnotationTool.Ellipse;
             EraserButton.IsChecked = _service.Tool == AnnotationTool.Eraser;
+            MagnifierButton.IsChecked = _service.Tool == AnnotationTool.Magnifier;
 
             var color = Color.FromRgb(_service.Color.Red, _service.Color.Green, _service.Color.Blue);
             var brush = new SolidColorBrush(color);

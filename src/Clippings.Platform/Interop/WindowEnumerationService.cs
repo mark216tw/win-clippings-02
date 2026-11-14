@@ -29,10 +29,14 @@ public sealed class WindowEnumerationService
                 return true;
             }
 
+            var processInfo = GetProcessInfo(target.ProcessId);
             targets.Add(new WindowRecordingTarget(
                 target,
                 title.ToString().Trim(),
-                GetProcessName(target.ProcessId)));
+                processInfo.Name)
+            {
+                ExecutablePath = processInfo.ExecutablePath,
+            });
             return true;
         }, IntPtr.Zero);
 
@@ -42,16 +46,28 @@ public sealed class WindowEnumerationService
             .ToArray();
     }
 
-    private static string GetProcessName(uint processId)
+    private static (string Name, string? ExecutablePath) GetProcessInfo(uint processId)
     {
         try
         {
             using var process = Process.GetProcessById(checked((int)processId));
-            return process.ProcessName;
+            return (process.ProcessName, TryGetExecutablePath(process));
         }
         catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception)
         {
-            return $"PID {processId}";
+            return ($"PID {processId}", null);
+        }
+    }
+
+    private static string? TryGetExecutablePath(Process process)
+    {
+        try
+        {
+            return process.MainModule?.FileName;
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or System.ComponentModel.Win32Exception or NotSupportedException)
+        {
+            return null;
         }
     }
 }

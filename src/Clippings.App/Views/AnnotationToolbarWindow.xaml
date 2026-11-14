@@ -123,6 +123,15 @@
                               StrokeStartLineCap="Round" StrokeEndLineCap="Round" Fill="Transparent" />
                     </Viewbox>
                 </RadioButton>
+                <RadioButton x:Name="MagnifierButton" GroupName="AnnotateTool" Tag="Magnifier" Style="{StaticResource AnnotateToolToggleStyle}"
+                             Foreground="{DynamicResource ToolbarTextBrush}"
+                             Click="OnToolClick" ToolTip="放大鏡：游標處局部放大（M，滾輪縮放）" AutomationProperties.Name="放大鏡">
+                    <Viewbox Width="16" Height="16">
+                        <Path Width="16" Height="16" Data="M6.5,1.5 A5,5 0 1 0 6.5,11.5 A5,5 0 1 0 6.5,1.5 M10.2,10.2 L14.5,14.5"
+                              Stroke="{DynamicResource ToolbarTextBrush}" StrokeThickness="1.5"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Fill="Transparent" />
+                    </Viewbox>
+                </RadioButton>
                 <RadioButton x:Name="EraserButton" GroupName="AnnotateTool" Tag="Eraser" Style="{StaticResource AnnotateToolToggleStyle}"
                              Foreground="{DynamicResource ToolbarTextBrush}"
                              Click="OnToolClick" ToolTip="橡皮擦：拖曳擦除整筆筆畫（8、E）" AutomationProperties.Name="橡皮擦">

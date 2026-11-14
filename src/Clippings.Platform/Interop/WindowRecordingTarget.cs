@@ -5,5 +5,7 @@ public sealed record WindowRecordingTarget(
     string Title,
     string ProcessName)
 {
+    public string? ExecutablePath { get; init; }
+
     public string DisplayName => $"{Title}  -  {ProcessName}";
 }
