@@ -182,17 +182,6 @@ public partial class MainWindow : Window
 
     private void OnExitAppClick(object sender, RoutedEventArgs e)
     {
-        if (MessageBox.Show(
-                this,
-                AppStrings.ExitAppConfirm,
-                AppStrings.ExitApp,
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question,
-                MessageBoxResult.No) != MessageBoxResult.Yes)
-        {
-            return;
-        }
-
         if (_settingsPage?.ConfirmLeave() == false)
         {
             return;

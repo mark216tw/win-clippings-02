@@ -1,3 +1,25 @@
+# Clippings 剪貼簿 2 1.29.2
+
+## 結束程式行為調整
+
+- 沒有錄影時按下「結束」會直接關閉，不再顯示確認對話框。
+- 錄影中或暫停錄影時按下「結束」會提示先停止錄影，不會直接關閉。
+- 主視窗隱藏（例如全螢幕錄影）時，提示改以系統匣通知顯示。
+
+## 下載
+
+- `win-x64`：適用 Intel、AMD 64 位元 Windows 電腦。
+- `win-arm64`：適用 ARM64 Windows 電腦。
+
+僅提供 framework-dependent ZIP，請解壓縮後使用。需安裝 [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0)；解壓縮後執行 `Clippings.App.New.exe`。
+
+## SHA-256
+
+- `Clippings-1.29.2-win-x64-framework-dependent.zip`：`93188997AFD3F3D9B3BAE3A5C5D38BD61510628CBFE121D53ED6749A538F22AA`
+- `Clippings-1.29.2-win-arm64-framework-dependent.zip`：`4DEE860CACAE2A096FB6FC0B9C9B8855D22EA05660EAC9036E6769B70524692B`
+
+---
+
 # Clippings 剪貼簿 2 1.29.1
 
 ## 螢幕標註放大鏡

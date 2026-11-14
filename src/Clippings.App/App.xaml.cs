@@ -572,8 +572,30 @@ public partial class App : Application
             return;
         }
 
+        if (_recording is { State: RecordingState.Recording or RecordingState.Paused })
+        {
+            ShowExitBlockedMessage();
+            return;
+        }
+
         _exitRequested = true;
         _ = ExitApplicationAsync();
+    }
+
+    private void ShowExitBlockedMessage()
+    {
+        if (_mainWindow is { IsVisible: true } window)
+        {
+            MessageBox.Show(
+                window,
+                AppStrings.ExitBlockedByRecording,
+                AppStrings.AppName,
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        _notifications?.Show(AppStrings.ExitBlockedByRecording, isError: true);
     }
 
     private async Task ExitApplicationAsync()

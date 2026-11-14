@@ -4,6 +4,34 @@
 
 ---
 
+## 2026-11-14 - 結束功能行為調整（v1.29.2）
+
+### 目標
+
+讓「結束」在沒有錄影時直接關閉；錄影中則阻止結束並提示使用者先停止錄影，避免未預期中斷錄影。
+
+### 變更
+
+- `App.xaml.cs`：`RequestExit()` 在 `Recording`／`Paused` 狀態直接顯示提示並返回；新增 `ShowExitBlockedMessage()`，主視窗可見時用 `MessageBox`，否則用系統匣通知
+- `Views/MainWindow.xaml.cs`：`OnExitAppClick` 移除「確定要結束」確認框，保留設定頁未儲存變更提示後直接呼叫 `RequestExit()`
+- `Strings/AppStrings.cs`：移除 `ExitAppConfirm`，新增 `ExitBlockedByRecording`
+- `Directory.Build.props`：版本 1.29.2
+
+### 問題與解法
+
+- 全螢幕錄影時主視窗會隱藏，`MessageBox` 不易看見，因此改以系統匣通知顯示提示
+- 倒數中、準備中與 Stopping 不視為錄影中，仍可直接結束；`OnExit` 既有的停止錄影收尾保留為防禦性處理
+
+### 待辦
+
+- 尚未實測混合 DPI 多螢幕下的提示位置
+
+### 日期與版本
+
+2026-11-14，v1.29.2。
+
+---
+
 ## 2026-11-14 - 螢幕標註線寬與放大鏡調整（v1.29.1）
 
 ### 目標
